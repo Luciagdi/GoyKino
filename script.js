@@ -1548,6 +1548,7 @@ async function approveEpisodeRequest(reqId) {
 }
 
 // FIX #3 & #6: adminDeleteEpisode — Supabase sync + confirm modal
+// Жисээ дутуу байсан функцийг гүйцээх хэсэг:
 function adminDeleteEpisode(movieId, epNum) {
     showConfirm(
         `Анги ${epNum}-г устгахдаа итгэлтэй байна уу?`,
@@ -1558,11 +1559,15 @@ function adminDeleteEpisode(movieId, epNum) {
             saveData();
 
             const { error } = await supabaseClient
-                .from('movies').update({ episodes: m.episodes }).eq('id', movieId);
-            if (error) console.error('Supabase episode delete алдаа:', error);
+                .from('movies')
+                .update({ episodes: m.episodes })
+                .eq('id', movieId);
+                
+            if (error) console.error('Supabase анги устгах алдаа:', error);
 
             renderAdminMovieList();
-            showToast(`Анги ${epNum} устгагдлаа.`);
+            renderHomeMovies();
+            showToast('Анги устгагдлаа.');
         },
         'Анги устгах',
         'Тийм, устгах'
