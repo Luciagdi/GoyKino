@@ -11,7 +11,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // --- Cloudflare Worker ---
 // Worker deploy хийсний дараа жинхэнэ URL-аа оруулна уу
 // Cloudflare Dashboard → Workers & Pages → goykino-worker → URL-ийг хуулах
-const WORKER_URL = 'https://goykino01.workers.dev';
+const WORKER_URL = 'https://goykino-worker.goykino01.workers.dev';
 // ⚠️  YOUR_NAME-ийг өөрийн Cloudflare account subdomain-аар солино уу!
 
 // WORKER_SECRET устгагдлаа ✅
