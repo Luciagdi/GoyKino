@@ -712,10 +712,6 @@ const searchMoviesHome = debounce(async function () {
 
     // Хоосон бол анхны байдалд буцаана
     if (!val) {
-        let label = document.getElementById('sectionTrendingLabel');
-        if (label) label.innerText = 'Трэнд болж буй үзвэрүүд';
-        let label2 = document.getElementById('sectionNewLabel');
-        if (label2) label2.style.display = '';
         renderHomeMovies();
         return;
     }
@@ -732,18 +728,14 @@ const searchMoviesHome = debounce(async function () {
         return;
     }
 
-    const found = data || [];
     const empty = '<p style="color:var(--text-muted);">Үр дүн олдсонгүй.</p>';
-    // Хайлтад бүх кино харуулна — isTrending/isNew-д хязгаарлахгүй
     if (tGrid) {
-        let label = document.getElementById('sectionTrendingLabel');
-        if (label) label.innerText = `"${val}" хайлтын үр дүн`;
-        tGrid.innerHTML = found.length > 0 ? found.map(createMovieCard).join('') : empty;
+        let t = (data || []).filter(m => m.isTrending).map(createMovieCard).join('');
+        tGrid.innerHTML = t || empty;
     }
     if (nGrid) {
-        nGrid.innerHTML = '';
-        let label2 = document.getElementById('sectionNewLabel');
-        if (label2) label2.style.display = 'none';
+        let n = (data || []).filter(m => m.isNew).map(createMovieCard).join('');
+        nGrid.innerHTML = n || empty;
     }
 }, 400);
 
@@ -1272,15 +1264,32 @@ function xhrPut(url, data, onProgress) {
  * Нэг файл upload (< CHUNK_SIZE)
  */
 async function uploadSingle(file, folder, onProgress) {
-    const { url, publicUrl } = await workerPost('/upload/presign', {
-        filename: file.name, contentType: file.type, folder
+    // Worker-оор шууд upload хийнэ — CORS асуудлыг шийдэнэ
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) throw new Error('Нэвтрээгүй байна');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', folder);
+
+    const xhr = new XMLHttpRequest();
+    await new Promise((resolve, reject) => {
+        xhr.upload.onprogress = e => {
+            if (e.lengthComputable && onProgress) onProgress(Math.round(e.loaded / e.total * 100));
+        };
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`Upload алдаа: ${xhr.status}`));
+        };
+        xhr.onerror = () => reject(new Error('Network алдаа'));
+        xhr.open('POST', WORKER_URL + '/upload/file');
+        xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
+        xhr.send(formData);
     });
 
-    await xhrPut(url, file, (loaded, total) => {
-        onProgress(Math.round(loaded / total * 100));
-    });
-
-    return publicUrl;
+    const result = JSON.parse(xhr.responseText);
+    if (result.error) throw new Error(result.error);
+    return result.publicUrl;
 }
 
 /**
@@ -1468,31 +1477,32 @@ function toggleCoverUrlInput() {
     }
 }
 
-// ── Видео файл сонгох (R2 multipart upload) ───────────────────
+// ── Видео файл сонгох (Cloudflare Stream) ─────────────────────
 async function handleVideoFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const statusText = document.getElementById('admVideoStatusText');
-    if (statusText) statusText.innerText = `⏳ Upload эхлэж байна: ${file.name}`;
+    if (statusText) statusText.innerText = `⏳ Stream upload эхлэж байна: ${file.name}`;
 
     showUploadBar('admVideoUploadArea', file.name, formatBytes(file.size));
 
     try {
-        const url = await uploadFileToR2(file, 'videos', (pct) => {
+        const hlsUrl = await uploadVideoToStream(file, (pct) => {
             updateUploadBar(pct,
-                pct < 100
-                    ? `Upload хийж байна... (${pct}%)`
-                    : '✅ R2-д хадгалагдлаа'
+                pct < 96  ? `Upload хийж байна... (${pct}%)` :
+                pct < 100 ? `⏳ Stream encode хийж байна...` :
+                            '✅ Stream бэлэн боллоо!'
             );
-            if (statusText) statusText.innerText = `⏳ ${pct}% — ${file.name}`;
+            if (statusText) statusText.innerText = pct < 96
+                ? `⏳ ${pct}% upload — ${file.name}`
+                : `⏳ Encode хийж байна...`;
         });
 
-        tempSelectedVideoFile = url;
-        if (statusText) statusText.innerText = `✅ Upload дууслаа: ${file.name}`;
-
+        tempSelectedVideoFile = hlsUrl;
+        if (statusText) statusText.innerText = `✅ Stream бэлэн: ${file.name}`;
         hideUploadBar(1000);
-        showToast('Видео амжилттай upload хийгдлээ!');
+        showToast('Видео Stream-д амжилттай upload хийгдлээ! 🎬');
     } catch (err) {
         hideUploadBar(0);
         if (statusText) statusText.innerText = `❌ Upload алдаа: ${err.message}`;
@@ -1540,6 +1550,49 @@ async function handleEpThumbSelect(event) {
         showToast('Thumbnail upload алдаа: ' + err.message, 'error');
         console.error(err);
     }
+}
+
+// ── Cloudflare Stream-д видео upload хийх (TUS protocol) ─────────
+async function uploadVideoToStream(file, onProgress) {
+    // 1. Worker-ээс TUS upload URL авна
+    const { uploadUrl, streamId } = await workerPost('/stream/upload', {
+        filename: file.name,
+        fileSize: file.size,
+    });
+
+    // 2. TUS upload хийнэ — chunk 50MB
+    const CHUNK = 50 * 1024 * 1024;
+    let offset = 0;
+
+    while (offset < file.size) {
+        const chunk = file.slice(offset, offset + CHUNK);
+        const res   = await fetch(uploadUrl, {
+            method: 'PATCH',
+            headers: {
+                'Tus-Resumable':  '1.0.0',
+                'Upload-Offset':  String(offset),
+                'Content-Type':   'application/offset+octet-stream',
+                'Content-Length': String(chunk.size),
+            },
+            body: chunk,
+        });
+        if (!res.ok) throw new Error('Stream upload chunk алдаа: ' + res.status);
+        offset += chunk.size;
+        if (onProgress) onProgress(Math.round(offset / file.size * 95));
+    }
+
+    // 3. Encode дуустал хүлээнэ (max 3 мин)
+    if (onProgress) onProgress(96);
+    for (let i = 0; i < 36; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const status = await workerPost('/stream/status', { streamId });
+        if (status.status === 'ready') {
+            if (onProgress) onProgress(100);
+            return status.hlsUrl; // .m3u8 URL буцаана
+        }
+        if (onProgress) onProgress(96 + Math.min(3, i));
+    }
+    throw new Error('Stream encode хэтэрхий удаан байна, дараа шалгана уу');
 }
 
 // ─────────────────────────────────────────────────────────────────
