@@ -94,9 +94,37 @@ window.onload = async function () {
     showPage('homePage');
     hideLoading();
 
+    // ── 3 Хэрэглэгчийн профайл real-time шинэчлэлт ──────────────────
+    // Admin approve хийхэд хэрэглэгч хуудсаа refresh хийхгүйгээр VIP болно
+    if (currentUser) {
+        supabaseClient
+            .channel('profile-vip-sync')
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'profile', filter: `id=eq.${currentUser.id}` },
+                (payload) => {
+                    const updated = payload.new;
+                    if (!updated) return;
+                    const wasVip = currentUser.role === 'vip' || (currentUser.vipExpires && Number(new Date(currentUser.vipExpires)) > Date.now());
+                    currentUser.vipExpires   = updated.vipExpires   ?? currentUser.vipExpires;
+                    currentUser.role         = updated.role         ?? currentUser.role;
+                    currentUser.rentedMovies = updated.rentedMovies ?? currentUser.rentedMovies;
+                    sessionStorage.setItem('nova_current_user', JSON.stringify(currentUser));
+                    checkAuthUI();
+                    const isVipNow = currentUser.role === 'vip' || (currentUser.vipExpires && Number(new Date(currentUser.vipExpires)) > Date.now());
+                    if (!wasVip && isVipNow) showToast('🎉 VIP эрх амжилттай нээгдлээ!');
+                    // Хэрэглэгч кино хуудсанд байвал товчуудыг шинэчилнэ
+                    if (currentSelectedMovieId) {
+                        let m = movies.find(mv => mv.id === currentSelectedMovieId);
+                        if (m) renderMovieActionButtons(m);
+                    }
+                }
+            )
+            .subscribe();
+    }
+
     // ── 2 Admin Realtime sync ──────────────────────────────────────
     // Admin байвал requests шинэчлэлтийг real-time сонсоно
-    if (currentUser && currentUser.role === 'admin') {
+    if (currentUser && (currentUser.role === 'admin')) {
         supabaseClient
             .channel('admin-requests-sync')
             .on('postgres_changes',
@@ -384,7 +412,24 @@ function showPage(pageId) {
     if (navEl) navEl.classList.add('active');
 
     if (pageId === 'allMoviesPage') renderAllMoviesPage();
-    if (pageId === 'profilePage') renderUserProfile();
+    if (pageId === 'profilePage') {
+        // Хуудас нээхэд Supabase-аас шинэ өгөгдөл татна — sessionStorage хуучирсан байж болно
+        if (currentUser && currentUser.id) {
+            supabaseClient.from('profile').select('*').eq('id', currentUser.id).single()
+                .then(({ data: fresh, error }) => {
+                    if (error) {
+                        // 400/406 алдаа гарвал sessionStorage-ийн өгөгдлөөр л харуулна
+                        console.warn('Profile refresh алдаа:', error.message);
+                    } else if (fresh) {
+                        currentUser = fresh;
+                        sessionStorage.setItem('nova_current_user', JSON.stringify(currentUser));
+                    }
+                    renderUserProfile();
+                });
+        } else {
+            renderUserProfile();
+        }
+    }
     if (pageId === 'adminPage') initAdminPanel();
 
     if (window.innerWidth <= 768) closeSidebar();
@@ -753,6 +798,28 @@ function isVipActive(user) {
     return Number(new Date(user.vipExpires)) > Date.now();
 }
 
+// 🔍 Admin debug хэрэгсэл — browser console-д дуудах: debugVipStatus()
+window.debugVipStatus = async function() {
+    if (!currentUser) { console.log('currentUser байхгүй'); return; }
+    console.log('=== VIP DEBUG ===');
+    console.log('Local currentUser:', {
+        id: currentUser.id, role: currentUser.role,
+        vipExpires: currentUser.vipExpires,
+        vipExpiresDate: currentUser.vipExpires ? new Date(currentUser.vipExpires).toString() : 'байхгүй',
+        isVipActive: isVipActive(currentUser)
+    });
+    const { data, error } = await supabaseClient.from('profile').select('id,role,vipExpires').eq('id', currentUser.id).single();
+    console.log('Supabase DB өгөгдөл:', data, error ? 'АЛДАА:' + error.message : '');
+    if (data) {
+        console.log('DB vipExpires:', data.vipExpires, '→', data.vipExpires ? new Date(data.vipExpires).toString() : 'байхгүй');
+        console.log('DB role:', data.role);
+    }
+    // pending хүсэлтүүд
+    const { data: reqs } = await supabaseClient.from('requests').select('*').eq('userId', currentUser.id).order('id', {ascending:false}).limit(5);
+    console.log('Сүүлийн 5 хүсэлт:', reqs);
+    console.log('=================');
+};
+
 function renderMovieActionButtons(m) {
     let container = document.getElementById('movieActionButtonsContainer');
     let epBlock   = document.getElementById('episodesBlockContainer');
@@ -1002,13 +1069,20 @@ function renderUserProfile() {
     let roleText = '👤 Хэрэглэгч';
     if (currentUser.role === 'admin')     roleText = '⚙️ Админ';
     if (currentUser.role === 'moderator') roleText = '✒️ Модератор';
+    if (currentUser.role === 'vip')       roleText = '👑 VIP';
     document.getElementById('profileRoleBadge').innerText = roleText;
 
     if (isVipActive(currentUser)) {
-        document.getElementById('profileVipStatus').innerText   = '👑 VIP Идэвхтэй';
-        document.getElementById('profileVipTimeValue').innerText = new Date(currentUser.vipExpires).toLocaleDateString('mn-MN');
+        const exp = new Date(currentUser.vipExpires);
+        // "2025 оны 06 сарын 15" хэлбэрт огноо
+        const vipDateStr = exp.toLocaleDateString('mn-MN', { year: 'numeric', month: 'long', day: 'numeric' });
+        // Үлдсэн хоног тооцоолно
+        const daysLeft = Math.ceil((exp - Date.now()) / (1000 * 60 * 60 * 24));
+        const daysText = daysLeft > 9999 ? 'Насан туршид' : `${daysLeft} хоног үлдсэн`;
+        document.getElementById('profileVipStatus').innerText    = '👑 VIP Идэвхтэй';
+        document.getElementById('profileVipTimeValue').innerText = `${vipDateStr} хүртэл (${daysText})`;
     } else {
-        document.getElementById('profileVipStatus').innerText   = 'Ердийн хэрэглэгч';
+        document.getElementById('profileVipStatus').innerText    = 'Ердийн хэрэглэгч';
         document.getElementById('profileVipTimeValue').innerText = 'Хугацаа дууссан эсвэл аваагүй';
     }
 
@@ -1473,7 +1547,7 @@ async function sendEmail(to, subject, html) {
         // АЮУЛГҮЙ БАЙДЛЫН ЗАСАЛ: JWT ашиглах
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) return;
-        await fetch(WORKER_URL + '/email/send', {
+        const emailRes = await fetch(WORKER_URL + '/email/send', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1481,8 +1555,13 @@ async function sendEmail(to, subject, html) {
             },
             body: JSON.stringify({ to, subject, html }),
         });
+        if (!emailRes.ok) {
+            const errText = await emailRes.text().catch(() => emailRes.status);
+            console.warn(`Имэйл Worker алдаа ${emailRes.status}:`, errText,
+                '\n→ Cloudflare Worker дээр SUPABASE_JWT_SECRET тохируулсан эсэхийг шалгана уу.');
+        }
     } catch (err) {
-        console.warn('Имэйл явуулж чадсангүй:', err);
+        console.warn('Имэйл явуулж чадсангүй:', err.message);
     }
 }
 
@@ -1840,14 +1919,17 @@ async function adminGiveVipDays(userEmail, idx) {
 
     let currentMs = u.vipExpires ? Number(new Date(u.vipExpires)) : 0;
     let base      = currentMs > Date.now() ? currentMs : Date.now();
-    u.vipExpires  = base + days * 24 * 60 * 60 * 1000;
+    u.vipExpires  = new Date(base + days * 24 * 60 * 60 * 1000).toISOString();
+    u.role        = 'vip';
     updateLocalState();
 
     const { error } = await supabaseClient
-        .from('profile').update({ vipExpires: u.vipExpires }).eq('email', userEmail);
-    if (error) console.error('Supabase VIP update алдаа:', error);
+        .from('profile').update({ vipExpires: u.vipExpires, role: 'vip' }).eq('email', userEmail);
+    if (error) {
+        console.error('Supabase VIP update алдаа:', error);
+        return showToast('VIP нэмэхэд алдаа: ' + error.message, 'error');
+    }
 
-    // Имэйл мэдэгдэл
     emailVipApproved(u, `${days} хоногийн VIP`, new Date(u.vipExpires).toLocaleDateString('mn-MN'));
 
     renderAdminUsersTable();
@@ -1886,9 +1968,10 @@ async function adminApprovePayment(userEmail) {
             let days      = getVipDays(r.code);
             let currentMs = freshUser.vipExpires ? Number(new Date(freshUser.vipExpires)) : 0;
             let base      = currentMs > Date.now() ? currentMs : Date.now();
-            freshUser.vipExpires = base + days * 24 * 60 * 60 * 1000;
-            await supabaseClient.from('profile')
-                .update({ vipExpires: freshUser.vipExpires }).eq('id', freshUser.id);
+            freshUser.vipExpires = new Date(base + days * 24 * 60 * 60 * 1000).toISOString();
+            const { error: vipErr2 } = await supabaseClient.from('profile')
+                .update({ vipExpires: freshUser.vipExpires, role: 'vip' }).eq('id', freshUser.id);
+            if (vipErr2) { console.error('adminApprovePayment VIP алдаа:', vipErr2); continue; }
             emailVipApproved(freshUser, r.code, new Date(freshUser.vipExpires).toLocaleDateString('mn-MN'));
         } else if (r.paymentType === 'RENT') {
             let rentedMovies = freshUser.rentedMovies || [];
@@ -2034,9 +2117,25 @@ async function approveRequest(reqId) {
             let days      = getVipDays(freshReq.code);
             let currentMs = freshUser.vipExpires ? Number(new Date(freshUser.vipExpires)) : 0;
             let base      = currentMs > Date.now() ? currentMs : Date.now();
-            let newExpiry = base + days * 24 * 60 * 60 * 1000;
+            let newExpiry = new Date(base + days * 24 * 60 * 60 * 1000).toISOString(); // ✅ ISO string хадгална
 
-            await supabaseClient.from('profile').update({ vipExpires: newExpiry }).eq('id', freshUser.id);
+            const { error: vipErr } = await supabaseClient.from('profile')
+                .update({ vipExpires: newExpiry, role: 'vip' })
+                .eq('id', freshUser.id);
+            if (vipErr) {
+                console.error('VIP update алдаа:', vipErr);
+                return showToast('VIP эрх шинэчлэхэд алдаа: ' + vipErr.message, 'error');
+            }
+
+            // Хэрэв approve хийж буй admin нь тухайн хэрэглэгч өөрөө бол local state шинэчилнэ
+            if (currentUser && currentUser.id === freshUser.id) {
+                currentUser.vipExpires = newExpiry;
+                currentUser.role = 'vip';
+                sessionStorage.setItem('nova_current_user', JSON.stringify(currentUser));
+                checkAuthUI();
+                renderUserProfile();
+            }
+
             emailVipApproved(freshUser, freshReq.code, new Date(newExpiry).toLocaleDateString('mn-MN'));
 
         } else if (freshReq.paymentType === 'RENT') {
