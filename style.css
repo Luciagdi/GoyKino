@@ -117,6 +117,14 @@ button:active{transform:scale(0.97);}
 .form-group label{display:block;font-size:13px;margin-bottom:6px;color:var(--text-muted);}
 .form-group input,.form-group textarea,.form-group select{width:100%;background:var(--bg-dark);border:1px solid var(--border-color);padding:10px;border-radius:6px;color:#fff;outline:none;}
 .form-group input:focus,.form-group textarea:focus,.form-group select:focus{border-color:var(--primary);}
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus,
+.form-group input:-webkit-autofill:active{
+  -webkit-box-shadow:0 0 0 30px var(--bg-dark) inset !important;
+  -webkit-text-fill-color:#fff !important;
+  caret-color:#fff;
+}
 .form-group select option{background:var(--bg-dark);}
 .form-group-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .btn-admin-submit{width:100%;padding:12px;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;}
