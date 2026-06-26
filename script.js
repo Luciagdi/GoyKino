@@ -1176,10 +1176,28 @@ async function recoverPasswordLogic() {
     let phone = document.getElementById('forgotPhone').value.trim();
     if (!email || !phone) return showToast('Имэйл болон утасны дугаараа оруулна уу!', 'error');
 
+    // Утасны дугаарыг зөвхөн тоо болгон хөрвүүлнэ — формат зөрүүг арилгана
+    // Жишээ: "+976 9911 2233", "99112233", "+97699112233" → бүгд "97699112233" болно
+    const normalizePhone = (p) => p.replace(/\D/g, '');
+    const phoneDigits = normalizePhone(phone);
+
+    // Зөвхөн имэйлээр хайна, утсыг client талд шалгана
     const { data: profile, error: profileErr } = await supabaseClient
-        .from('profile').select('id').eq('email', email).eq('phone', phone).maybeSingle();
+        .from('profile').select('id, phone').eq('email', email).maybeSingle();
+
     if (profileErr || !profile) {
-        showToast('Утасны дугаар эсвэл имэйл тохирохгүй байна!', 'error');
+        showToast('Энэ имэйл бүртгэлгүй байна!', 'error');
+        return;
+    }
+
+    // Утасны дугаарыг формат харгалзахгүйгээр харьцуулна
+    const dbPhoneDigits = normalizePhone(profile.phone || '');
+    // Сүүлийн 8 оронг харьцуулна — +976 дугаар эсвэл 8 оронтой дугаар аль ч байсан тохирно
+    const last8input = phoneDigits.slice(-8);
+    const last8db    = dbPhoneDigits.slice(-8);
+
+    if (!last8input || last8input !== last8db) {
+        showToast('Утасны дугаар тохирохгүй байна!', 'error');
         return;
     }
 
@@ -1191,7 +1209,7 @@ async function recoverPasswordLogic() {
     document.getElementById('forgotStep1').classList.add('hidden');
     document.getElementById('forgotStep2').classList.remove('hidden');
     let otpEmailEl = document.getElementById('otpTargetEmail');
-    if (otpEmailEl) otpEmailEl.textContent = email; // textContent — HTML injection хамгаалалт
+    if (otpEmailEl) otpEmailEl.textContent = email;
     showToast('Нууц үг сэргээх линк таны имэйл рүү илгээгдлээ!');
 }
 
