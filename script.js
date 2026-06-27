@@ -1171,7 +1171,6 @@ function openForgotModal() {
     let step1 = document.getElementById('forgotStep1');
     if (step1) step1.classList.remove('hidden');
     document.getElementById('forgotEmail').value = '';
-    document.getElementById('forgotPhone').value = '';
     openModal('forgotModal');
 }
 
@@ -1185,17 +1184,60 @@ function openPasswordResetModal() {
     openModal('forgotModal');
 }
 
+// ── OTP countdown таймер ──────────────────────────────────────────
+let otpCountdownTimer = null;
+function startOtpCountdown(seconds = 60) {
+    const btn      = document.getElementById('resendOtpBtn');
+    const countdown = document.getElementById('resendCountdown');
+    if (!btn || !countdown) return;
+    btn.style.display      = 'none';
+    countdown.style.display = 'inline';
+    let left = seconds;
+    countdown.textContent  = `${left}с дараа дахин авах`;
+    clearInterval(otpCountdownTimer);
+    otpCountdownTimer = setInterval(() => {
+        left--;
+        if (left <= 0) {
+            clearInterval(otpCountdownTimer);
+            countdown.style.display = 'none';
+            btn.style.display       = 'inline';
+        } else {
+            countdown.textContent = `${left}с дараа дахин авах`;
+        }
+    }, 1000);
+}
+
+// ── OTP баталгаажуулах ───────────────────────────────────────────
+async function verifyOtpLogic() {
+    const email = document.getElementById('otpTargetEmail')?.textContent?.trim();
+    const token = document.getElementById('otpCodeInput')?.value?.trim();
+    if (!token || token.length !== 6) return showToast('6 оронтой код оруулна уу!', 'error');
+
+    const { error } = await supabaseClient.auth.verifyOtp({
+        email, token, type: 'recovery'
+    });
+    if (error) return showToast('Код буруу байна эсвэл хугацаа дууссан!', 'error');
+
+    // Амжилттай — шинэ нууц үг оруулах алхам руу шилжинэ
+    document.getElementById('forgotStep2').classList.add('hidden');
+    document.getElementById('forgotStep3').classList.remove('hidden');
+}
+
+// ── Дахин OTP илгээх ─────────────────────────────────────────────
+async function resendOtpLogic() {
+    const email = document.getElementById('otpTargetEmail')?.textContent?.trim();
+    if (!email) return;
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://www.goykino.uk?type=recovery'
+    });
+    if (error) return showToast('Код илгээхэд алдаа гарлаа!', 'error');
+    showToast('Шинэ код илгээгдлээ!');
+    startOtpCountdown(60);
+}
+
 async function recoverPasswordLogic() {
     let email = document.getElementById('forgotEmail').value.trim();
-    let phone = document.getElementById('forgotPhone').value.trim();
-    if (!email || !phone) return showToast('Имэйл болон утасны дугаараа оруулна уу!', 'error');
-
-    const { data: profile, error: profileErr } = await supabaseClient
-        .from('profile').select('id').eq('email', email).eq('phone', phone).maybeSingle();
-    if (profileErr || !profile) {
-        showToast('Утасны дугаар эсвэл имэйл тохирохгүй байна!', 'error');
-        return;
-    }
+    if (!email) return showToast('Имэйл хаягаа оруулна уу!', 'error');
 
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
         redirectTo: 'https://www.goykino.uk?type=recovery'
@@ -1205,8 +1247,9 @@ async function recoverPasswordLogic() {
     document.getElementById('forgotStep1').classList.add('hidden');
     document.getElementById('forgotStep2').classList.remove('hidden');
     let otpEmailEl = document.getElementById('otpTargetEmail');
-    if (otpEmailEl) otpEmailEl.textContent = email; // textContent — HTML injection хамгаалалт
-    showToast('Нууц үг сэргээх линк таны имэйл рүү илгээгдлээ!');
+    if (otpEmailEl) otpEmailEl.textContent = email;
+    startOtpCountdown(60);
+    showToast('6 оронтой код таны имэйл рүү илгээгдлээ!');
 }
 
 async function resetPasswordLogic() {

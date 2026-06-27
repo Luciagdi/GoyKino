@@ -80,11 +80,11 @@
                     </div>
                 </div>
                 <div class="movie-section-container">
-                    <h3 class="section-title" id="sectionTrendingLabel"><i class="fas fa-fire" style="color:#ef4444;"></i> Трэнд болж буй үзвэрүүд</h3>
+                    <h3 class="section-title"><i class="fas fa-fire" style="color:#ef4444;"></i> Трэнд болж буй үзвэрүүд</h3>
                     <div class="movie-grid" id="grid-trending"></div>
                 </div>
                 <div class="movie-section-container">
-                    <h3 class="section-title" id="sectionNewLabel"><i class="fas fa-star" style="color:var(--vip-color);"></i> Шинээр нэмэгдсэн үзвэрүүд</h3>
+                    <h3 class="section-title"><i class="fas fa-star" style="color:var(--vip-color);"></i> Шинээр нэмэгдсэн үзвэрүүд</h3>
                     <div class="movie-grid" id="grid-new"></div>
                 </div>
             </section>
@@ -548,37 +548,50 @@
 
             <!-- Алхам 1: Имэйл + Утас оруулах -->
             <div id="forgotStep1">
-                <h3 style="margin-bottom:5px;">Нууц үг сэргээх</h3>
-                <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Бүртгэлтэй имэйл болон утасны дугаараа оруулна уу.</p>
-                <div class="form-group"><label>Имэйл хаяг</label><input type="email" id="forgotEmail" placeholder="Имэйл хаяг"></div>
-                <div class="form-group"><label>Утасны дугаар</label><input type="text" id="forgotPhone" placeholder="Утасны дугаар"></div>
-                <button class="btn-main" style="width:100%;" onclick="recoverPasswordLogic()">
-                    <i class="fas fa-paper-plane"></i> Сэргээх линк илгээх
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div style="font-size:40px;margin-bottom:8px;">🔐</div>
+                    <h3 style="margin-bottom:5px;">Нууц үг сэргээх</h3>
+                    <p style="font-size:13px;color:var(--text-muted);">Бүртгэлтэй имэйл болон утасны дугаараа оруулна уу</p>
+                </div>
+                <div class="form-group"><label>Имэйл хаяг</label><input type="email" id="forgotEmail" placeholder="example@gmail.com"></div>
+                <button class="btn-main" style="width:100%;margin-top:8px;" onclick="recoverPasswordLogic()">
+                    <i class="fas fa-paper-plane"></i> Код илгээх
                 </button>
-                <p style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center;">Бүртгэлтэй имэйл хаяг руу нууц үг сэргээх линк илгээгдэнэ.</p>
             </div>
 
-            <!-- Алхам 2: Имэйл илгээгдсэн -->
+            <!-- Алхам 2: OTP код оруулах -->
             <div id="forgotStep2" class="hidden">
-                <div style="text-align:center;padding:10px 0;">
-                    <div style="font-size:52px;margin-bottom:12px;">📧</div>
-                    <h3 style="margin-bottom:10px;color:#10b981;">Имэйл илгээгдлээ!</h3>
-                    <p style="font-size:13px;color:var(--text-muted);line-height:1.7;margin-bottom:20px;">
-                        <strong id="otpTargetEmail" style="color:white;"></strong> хаяг руу<br>
-                        нууц үг сэргээх линк илгээгдлээ.<br><br>
-                        Inbox (эсвэл Spam) хавтсаа шалгаж,<br>
-                        линк дээр дарна уу.
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div style="font-size:40px;margin-bottom:8px;">📬</div>
+                    <h3 style="margin-bottom:5px;">Код оруулна уу</h3>
+                    <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">
+                        <strong id="otpTargetEmail" style="color:white;"></strong><br>хаяг руу 6 оронтой код илгээгдлээ
                     </p>
-                    <button onclick="closeModal('forgotModal')" class="btn-main" style="width:100%;">
-                        <i class="fas fa-check"></i> Ойлголоо
+                </div>
+                <div class="form-group">
+                    <label>6 оронтой код</label>
+                    <input type="text" id="otpCodeInput" placeholder="000000" maxlength="6"
+                        style="text-align:center;font-size:28px;font-weight:800;letter-spacing:10px;">
+                </div>
+                <button class="btn-main" style="width:100%;margin-bottom:12px;" onclick="verifyOtpLogic()">
+                    <i class="fas fa-check-circle"></i> Баталгаажуулах
+                </button>
+                <div style="text-align:center;">
+                    <button id="resendOtpBtn" onclick="resendOtpLogic()" 
+                        style="background:none;border:none;color:var(--text-muted);font-size:13px;cursor:pointer;padding:0;">
+                        Дахин код авах
                     </button>
+                    <span id="resendCountdown" style="font-size:13px;color:var(--primary);display:none;"></span>
                 </div>
             </div>
 
-            <!-- Алхам 3: Шинэ нууц үг (email линкээр ирэхэд авто нээгдэнэ) -->
+            <!-- Алхам 3: Шинэ нууц үг -->
             <div id="forgotStep3" class="hidden">
-                <h3 style="margin-bottom:5px;color:#10b981;">Шинэ нууц үг оруулна уу</h3>
-                <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Имэйлийн линк баталгаажлаа. Шинэ нууц үгээ тохируулна уу.</p>
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div style="font-size:40px;margin-bottom:8px;">✅</div>
+                    <h3 style="margin-bottom:5px;color:#10b981;">Баталгаажлаа!</h3>
+                    <p style="font-size:13px;color:var(--text-muted);">Шинэ нууц үгээ оруулна уу</p>
+                </div>
                 <div class="form-group">
                     <label>Шинэ нууц үг</label>
                     <div style="position:relative;">
