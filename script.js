@@ -1249,7 +1249,7 @@ async function recoverPasswordLogic() {
     let otpEmailEl = document.getElementById('otpTargetEmail');
     if (otpEmailEl) otpEmailEl.textContent = email;
     startOtpCountdown(60);
-    showToast('6 оронтой код таны имэйл рүү илгээгдлээ!');
+    showToast('Нэг удаагийн код таны имэйл рүү илгээгдлээ!');
 }
 
 async function resetPasswordLogic() {
@@ -1548,11 +1548,11 @@ async function handleVideoFileSelect(event) {
         const hlsUrl = await uploadVideoToStream(file, (pct) => {
             updateUploadBar(pct,
                 pct < 96  ? `Upload хийж байна... (${pct}%)` :
-                pct < 100 ? `⏳ Stream encode хийж байна...` :
-                            '✅ Stream бэлэн боллоо!'
+                pct < 100 ? `⏳ Encode хийж байна...` :
+                            '✅ Бэлэн боллоо!'
             );
             if (statusText) statusText.innerText = pct < 96
-                ? `⏳ ${pct}% upload — ${file.name}`
+                ? `⏳ ${pct}% — ${file.name}`
                 : `⏳ Encode хийж байна...`;
         });
 
@@ -1650,6 +1650,42 @@ async function uploadVideoToStream(file, onProgress) {
         if (onProgress) onProgress(96 + Math.min(3, i));
     }
     throw new Error('Stream encode хэтэрхий удаан байна, дараа шалгана уу');
+}
+
+// ── B2-д видео upload хийх (R2-тай адил гэхдээ /video/ endpoint) ──
+async function uploadFileToB2(file, folder, onProgress) {
+    if (file.size < 10 * 1024 * 1024) {
+        // 10MB-с бага → presign
+        const { url, publicUrl } = await workerPost('/video/presign', {
+            filename: file.name, contentType: file.type, folder
+        });
+        await xhrPut(url, file, (loaded, total) => {
+            if (onProgress) onProgress(Math.round(loaded / total * 100));
+        });
+        return publicUrl;
+    }
+    // 10MB-с их → multipart
+    const { uploadId, key, publicUrl } = await workerPost('/video/multipart/create', {
+        filename: file.name, contentType: file.type, folder
+    });
+    const CHUNK = 50 * 1024 * 1024;
+    const parts = [];
+    let offset  = 0;
+    let partNum = 1;
+    while (offset < file.size) {
+        const chunk = file.slice(offset, offset + CHUNK);
+        const { url } = await workerPost('/video/multipart/part', { key, uploadId, partNumber: partNum });
+        const xhr = await xhrPut(url, chunk, (loaded, total) => {
+            const overall = Math.round((offset + loaded) / file.size * 95);
+            if (onProgress) onProgress(overall);
+        });
+        parts.push({ partNumber: partNum, etag: xhr.getResponseHeader('ETag') });
+        offset += chunk.size;
+        partNum++;
+    }
+    const { publicUrl: finalUrl } = await workerPost('/video/multipart/complete', { key, uploadId, parts });
+    if (onProgress) onProgress(100);
+    return finalUrl || publicUrl;
 }
 
 // ─────────────────────────────────────────────────────────────────
