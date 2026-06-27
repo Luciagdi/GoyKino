@@ -78,6 +78,28 @@ window.onload = async function () {
 
     supabaseClient.auth.onAuthStateChange((event, _session) => {
         if (event === 'PASSWORD_RECOVERY') {
+            // Хуудас бүрэн ачааллах хүртэл хүлээнэ
+            const openResetModal = () => {
+                ['forgotStep1', 'forgotStep2'].forEach(id => {
+                    let el = document.getElementById(id);
+                    if (el) el.classList.add('hidden');
+                });
+                let step3 = document.getElementById('forgotStep3');
+                if (step3) step3.classList.remove('hidden');
+                openModal('forgotModal');
+            };
+            // DOM бэлэн болсон эсэхийг шалгаад нээнэ
+            if (document.readyState === 'complete') {
+                openResetModal();
+            } else {
+                window.addEventListener('load', openResetModal, { once: true });
+            }
+        }
+    });
+
+    // URL-д access_token байвал PASSWORD_RECOVERY гэж үзнэ (fallback)
+    if (window.location.hash.includes('type=recovery')) {
+        setTimeout(() => {
             ['forgotStep1', 'forgotStep2'].forEach(id => {
                 let el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -85,8 +107,8 @@ window.onload = async function () {
             let step3 = document.getElementById('forgotStep3');
             if (step3) step3.classList.remove('hidden');
             openModal('forgotModal');
-        }
-    });
+        }, 500);
+    }
 
     await loadInitialDataFromSupabase();
     checkAuthUI();
@@ -1184,7 +1206,7 @@ async function recoverPasswordLogic() {
     }
 
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.href.split('#')[0]
+        redirectTo: 'https://www.goykino.uk'
     });
     if (error) { showToast('Имэйл илгээхэд алдаа гарлаа: ' + error.message, 'error'); return; }
 
