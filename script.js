@@ -574,10 +574,7 @@ async function registerLogic() {
     const { data, error } = await supabaseClient.auth.signUp({ email, password: pass });
     if (error) {
         hideLoading();
-        if (error.status === 422 || error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already')) {
-            return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
-        }
-        return showToast(error.message, 'error');
+        return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
     }
     if (!data?.user) {
         hideLoading();
@@ -1200,7 +1197,8 @@ function openForgotModal() {
     });
     let step1 = document.getElementById('forgotStep1');
     if (step1) step1.classList.remove('hidden');
-    document.getElementById('forgotEmail').value = '';
+    const forgotEmailEl = document.getElementById('forgotEmail');
+    if (forgotEmailEl) forgotEmailEl.value = '';
     openModal('forgotModal');
 }
 
