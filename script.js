@@ -584,25 +584,31 @@ async function registerLogic() {
         return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
     }
 
-    let newUser = {
+    // Trigger profile үүсгэдэг тул хэсэг хүлээгээд profile уншина
+    await new Promise(r => setTimeout(r, 1000));
+
+    const { data: profile } = await supabaseClient
+        .from('profile').select('*').eq('id', data.user.id).single();
+
+    let newUser = profile || {
         id: data.user.id, name, phone, email, role: 'user',
         vipExpires: null, rentedMovies: [], history: [],
         avatar: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
     };
 
-    const { error: profileError } = await supabaseClient.from('profile').insert(newUser);
-    if (profileError) {
-        hideLoading();
-        if (profileError.code === '23505' || profileError.message.includes('duplicate') || profileError.message.includes('409')) {
-            closeModal('loginModal');
-            setTimeout(() => openModal('loginModal'), 100);
-            return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
-        }
-        return showToast('Профайл хадгалахад алдаа гарлаа: ' + profileError.message, 'error');
+    // Trigger profile үүсгээгүй бол гараар нэмнэ
+    if (!profile) {
+        await supabaseClient.from('profile').upsert(newUser);
+    } else {
+        // Trigger үүсгэсэн profile-д name, phone шинэчилнэ
+        await supabaseClient.from('profile').update({ name, phone }).eq('id', data.user.id);
+        newUser.name  = name;
+        newUser.phone = phone;
     }
 
     users.push(newUser);
     currentUser = newUser;
+    sessionStorage.setItem('nova_current_user', JSON.stringify(currentUser));
     updateLocalState();
     hideLoading();
     closeModal('loginModal');
