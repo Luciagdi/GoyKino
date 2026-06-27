@@ -574,6 +574,11 @@ async function registerLogic() {
     const { error: profileError } = await supabaseClient.from('profile').insert(newUser);
     if (profileError) {
         hideLoading();
+        if (profileError.code === '23505' || profileError.message.includes('duplicate') || profileError.message.includes('409')) {
+            closeModal('loginModal');
+            setTimeout(() => openModal('loginModal'), 100);
+            return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
+        }
         return showToast('Профайл хадгалахад алдаа гарлаа: ' + profileError.message, 'error');
     }
 
