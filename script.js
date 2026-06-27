@@ -78,36 +78,18 @@ window.onload = async function () {
 
     supabaseClient.auth.onAuthStateChange((event, _session) => {
         if (event === 'PASSWORD_RECOVERY') {
-            // Хуудас бүрэн ачааллах хүртэл хүлээнэ
-            const openResetModal = () => {
-                ['forgotStep1', 'forgotStep2'].forEach(id => {
-                    let el = document.getElementById(id);
-                    if (el) el.classList.add('hidden');
-                });
-                let step3 = document.getElementById('forgotStep3');
-                if (step3) step3.classList.remove('hidden');
-                openModal('forgotModal');
-            };
-            // DOM бэлэн болсон эсэхийг шалгаад нээнэ
-            if (document.readyState === 'complete') {
-                openResetModal();
-            } else {
-                window.addEventListener('load', openResetModal, { once: true });
-            }
+            openPasswordResetModal();
         }
     });
 
-    // URL-д access_token байвал PASSWORD_RECOVERY гэж үзнэ (fallback)
-    if (window.location.hash.includes('type=recovery')) {
-        setTimeout(() => {
-            ['forgotStep1', 'forgotStep2'].forEach(id => {
-                let el = document.getElementById(id);
-                if (el) el.classList.add('hidden');
-            });
-            let step3 = document.getElementById('forgotStep3');
-            if (step3) step3.classList.remove('hidden');
-            openModal('forgotModal');
-        }, 500);
+    // PKCE flow: URL-д ?code= байвал session солиод PASSWORD_RECOVERY modal нээнэ
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const type = urlParams.get('type');
+    if (code && type === 'recovery') {
+        supabaseClient.auth.exchangeCodeForSession(code).then(({ error }) => {
+            if (!error) openPasswordResetModal();
+        });
     }
 
     await loadInitialDataFromSupabase();
@@ -1193,6 +1175,16 @@ function openForgotModal() {
     openModal('forgotModal');
 }
 
+function openPasswordResetModal() {
+    ['forgotStep1', 'forgotStep2'].forEach(id => {
+        let el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+    let step3 = document.getElementById('forgotStep3');
+    if (step3) step3.classList.remove('hidden');
+    openModal('forgotModal');
+}
+
 async function recoverPasswordLogic() {
     let email = document.getElementById('forgotEmail').value.trim();
     let phone = document.getElementById('forgotPhone').value.trim();
@@ -1206,7 +1198,7 @@ async function recoverPasswordLogic() {
     }
 
     const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://www.goykino.uk'
+        redirectTo: 'https://www.goykino.uk?type=recovery'
     });
     if (error) { showToast('Имэйл илгээхэд алдаа гарлаа: ' + error.message, 'error'); return; }
 
