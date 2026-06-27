@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://www.goykino.uk/$1",
+      "permanent": true
+    }
+  ]
+}
