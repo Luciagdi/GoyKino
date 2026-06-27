@@ -562,8 +562,24 @@ async function registerLogic() {
         return showToast('Нууц үг дор хаяж 6 тэмдэгт байх ёстой!', 'error');
 
     showLoading('Бүртгэж байна...');
+
+    // Имэйл аль хэдийн бүртгэлтэй эсэхийг profile хүснэгтээс шалгана
+    const { data: existing } = await supabaseClient
+        .from('profile').select('id').eq('email', email).maybeSingle();
+    if (existing) {
+        hideLoading();
+        return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
+    }
+
     const { data, error } = await supabaseClient.auth.signUp({ email, password: pass });
-    if (error) { hideLoading(); return showToast(error.message, 'error'); }
+    if (error) {
+        hideLoading();
+        return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
+    }
+    if (!data?.user) {
+        hideLoading();
+        return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
+    }
 
     let newUser = {
         id: data.user.id, name, phone, email, role: 'user',
