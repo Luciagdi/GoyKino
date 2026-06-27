@@ -1211,7 +1211,7 @@ function startOtpCountdown(seconds = 60) {
 async function verifyOtpLogic() {
     const email = document.getElementById('otpTargetEmail')?.textContent?.trim();
     const token = document.getElementById('otpCodeInput')?.value?.trim();
-    if (!token || token.length !== 6) return showToast('6 оронтой код оруулна уу!', 'error');
+    if (!token || token.length < 6) return showToast('Кодоо бүрэн оруулна уу!', 'error');
 
     const { error } = await supabaseClient.auth.verifyOtp({
         email, token, type: 'recovery'
