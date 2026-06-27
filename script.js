@@ -574,7 +574,10 @@ async function registerLogic() {
     const { data, error } = await supabaseClient.auth.signUp({ email, password: pass });
     if (error) {
         hideLoading();
-        return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
+        if (error.status === 422 || error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('already')) {
+            return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
+        }
+        return showToast(error.message, 'error');
     }
     if (!data?.user) {
         hideLoading();
