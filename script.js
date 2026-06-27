@@ -1563,37 +1563,114 @@ function toggleCoverUrlInput() {
 }
 
 // ── Видео файл сонгох (Cloudflare Stream) ─────────────────────
+// ЗАСАЛ: encode дуусахыг хязгааргүй хугацаагаар background-д хүлээнэ.
+// 10GB, 180 мин видео ч алдаа гарахгүй.
 async function handleVideoFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const statusText = document.getElementById('admVideoStatusText');
-    if (statusText) statusText.innerText = `⏳ Stream upload эхлэж байна: ${file.name}`;
+    const saveBtn    = document.getElementById('admAddEpBtn');
+    if (statusText) statusText.innerText = `⏳ Upload эхлэж байна: ${file.name}`;
+    if (saveBtn)    { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
+
+    tempSelectedVideoFile = ''; // Encode дуустал хоосон — санамсаргүй хадгалахаас сэргийлнэ
 
     showUploadBar('admVideoUploadArea', file.name, formatBytes(file.size));
 
     try {
-        const hlsUrl = await uploadVideoToStream(file, (pct) => {
-            updateUploadBar(pct,
-                pct < 96  ? `Upload хийж байна... (${pct}%)` :
-                pct < 100 ? `⏳ Encode хийж байна...` :
-                            '✅ Бэлэн боллоо!'
-            );
-            if (statusText) statusText.innerText = pct < 96
-                ? `⏳ ${pct}% — ${file.name}`
-                : `⏳ Encode хийж байна...`;
+        // 1️⃣ TUS upload хийнэ — streamId буцаана (encode хүлээхгүй)
+        const streamId = await uploadVideoToStream(file, (pct) => {
+            updateUploadBar(pct, `Upload хийж байна... (${pct}%)`);
+            if (statusText) statusText.innerText = `⏳ ${pct}% — ${file.name}`;
         });
 
-        tempSelectedVideoFile = hlsUrl;
-        if (statusText) statusText.innerText = `✅ Stream бэлэн: ${file.name}`;
-        hideUploadBar(1000);
-        showToast('Видео Stream-д амжилттай upload хийгдлээ! 🎬');
+        // Upload дууслаа — encode background-д эхлэнэ
+        updateUploadBar(100, '✅ Upload дууслаа! Encode хүлээж байна...');
+        if (statusText) {
+            statusText.innerHTML =
+                `⏳ Encode хийгдэж байна... <span id="encodeTimer" style="color:#f59e0b;">0 сек</span><br>` +
+                `<span style="font-size:10px;color:var(--text-muted);">Хуудсыг хаахгүй байна уу</span>`;
+        }
+        showToast('Upload дууслаа! Encode дуусахыг хүлээж байна... 🎬');
+
+        // Encode явцын таймер
+        let encodeSeconds = 0;
+        const encodeTimerInterval = setInterval(() => {
+            encodeSeconds++;
+            const timerEl = document.getElementById('encodeTimer');
+            if (timerEl) {
+                const mins = Math.floor(encodeSeconds / 60);
+                const secs = encodeSeconds % 60;
+                timerEl.innerText = mins > 0 ? `${mins} мин ${secs} сек` : `${secs} сек`;
+            }
+        }, 1000);
+
+        // 2️⃣ Background polling — хязгааргүй хугацаагаар шалгана
+        pollStreamUntilReady(streamId, (hlsUrl) => {
+            clearInterval(encodeTimerInterval);
+            tempSelectedVideoFile = hlsUrl;
+            hideUploadBar(500);
+            if (statusText) statusText.innerHTML =
+                `✅ Encode дууслаа! Видео бэлэн болсон.<br>` +
+                `<span style="font-size:10px;color:#10b981;">${escapeHtml(file.name)}</span>`;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+            showToast('Видео encode дууслаа! Анги нэмэх товч идэвхжлээ. 🎬');
+        }, (errMsg) => {
+            clearInterval(encodeTimerInterval);
+            hideUploadBar(0);
+            if (statusText) statusText.innerText = `❌ Encode алдаа: ${errMsg}`;
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
+            showToast('Encode алдаа: ' + errMsg, 'error');
+        });
+
     } catch (err) {
         hideUploadBar(0);
         if (statusText) statusText.innerText = `❌ Upload алдаа: ${err.message}`;
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
         showToast('Видео upload алдаа: ' + err.message, 'error');
         console.error(err);
     }
+}
+
+/**
+ * Cloudflare Stream encode дуусахыг хязгааргүй хугацаагаар background-д шалгана.
+ * Хугацааны алхам: 0–5мин → 10с, 5–30мин → 20с, 30мин+ → 30с
+ * @param {string}   streamId  - Cloudflare Stream ID
+ * @param {Function} onReady   - encode дуусмагц hlsUrl-тай дуудагдана
+ * @param {Function} onError   - Worker-ийн encode алдаа гарвал дуудагдана
+ */
+function pollStreamUntilReady(streamId, onReady, onError) {
+    let attempts = 0;
+
+    function getInterval() {
+        if (attempts < 30) return 10_000;  // 0–5 мин: 10 секунд тутамд
+        if (attempts < 90) return 20_000;  // 5–30 мин: 20 секунд тутамд
+        return 30_000;                     // 30 мин+: 30 секунд тутамд (хязгааргүй)
+    }
+
+    async function check() {
+        attempts++;
+        try {
+            const status = await workerPost('/stream/status', { streamId });
+            if (status.status === 'ready') {
+                onReady(status.hlsUrl);
+                return; // Polling зогсоно
+            }
+            if (status.status === 'error') {
+                onError('Cloudflare Stream encode алдаа гарлаа');
+                return;
+            }
+            // Хэвийн processing → дараагийн шалгалт
+            setTimeout(check, getInterval());
+        } catch (err) {
+            // Network алдаа тохиолдвол retry — хаяхгүй
+            console.warn(`Stream status шалгах алдаа (оролдлого ${attempts}):`, err.message);
+            setTimeout(check, getInterval());
+        }
+    }
+
+    setTimeout(check, 10_000); // Эхний шалгалт 10 секундын дараа
 }
 
 function toggleVideoUrlInput() {
@@ -1666,18 +1743,10 @@ async function uploadVideoToStream(file, onProgress) {
         if (onProgress) onProgress(Math.round(offset / file.size * 95));
     }
 
-    // 3. Encode дуустал хүлээнэ (max 3 мин)
-    if (onProgress) onProgress(96);
-    for (let i = 0; i < 36; i++) {
-        await new Promise(r => setTimeout(r, 5000));
-        const status = await workerPost('/stream/status', { streamId });
-        if (status.status === 'ready') {
-            if (onProgress) onProgress(100);
-            return status.hlsUrl; // .m3u8 URL буцаана
-        }
-        if (onProgress) onProgress(96 + Math.min(3, i));
-    }
-    throw new Error('Stream encode хэтэрхий удаан байна, дараа шалгана уу');
+    // 3. Upload дуусмагц streamId-г шууд буцаана — encode хүлээхгүй.
+    // Encode background-д явна (pollStreamUntilReady ашиглана).
+    if (onProgress) onProgress(100);
+    return streamId;
 }
 
 // ── B2-д видео upload хийх (R2-тай адил гэхдээ /video/ endpoint) ──
