@@ -4,4 +4,14 @@ compatibility_date = "2024-01-01"
 
 [vars]
 R2_BUCKET_NAME = "goykino-videos"
-R2_PUBLIC_URL = https://pub-1720b603752f485ea99fde602e67b2fc.r2.dev
+R2_PUBLIC_URL = "https://pub-1720b603752f485ea99fde602e67b2fc.r2.dev"
+
+# handleFileUpload дахь env.BUCKET
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "goykino-videos"
+
+# Нууц утгуудыг `wrangler secret put <NAME>`-аар тохируулна:
+#   SUPABASE_URL, SUPABASE_ANON_KEY,
+#   RESEND_API_KEY, STREAM_API_TOKEN, CF_ACCOUNT_ID
+# (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY хэрэггүй болсон — upload env.BUCKET-ээр явна)

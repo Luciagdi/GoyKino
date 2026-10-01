@@ -4,16 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoyKino - Кино Платформ</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <!-- LOADING OVERLAY -->
-    <div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,15,30,0.85);z-index:99999;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+    <div id="loadingOverlay" style="display:none;position:fixed;inset:0;background:rgba(3,7,27,0.9);z-index:99999;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
         <div style="text-align:center;">
-            <div style="width:52px;height:52px;border:4px solid #1e293b;border-top-color:#3b82f6;border-radius:50%;animation:loaderSpin 0.8s linear infinite;margin:0 auto 14px;"></div>
-            <div id="loadingText" style="color:#f8fafc;font-size:14px;font-weight:600;letter-spacing:0.5px;">Ачааллаж байна...</div>
+            <div style="width:52px;height:52px;border:4px solid #101424;border-top-color:#c9a15a;border-radius:50%;animation:loaderSpin 0.8s linear infinite;margin:0 auto 14px;"></div>
+            <div id="loadingText" style="color:#f5f7fb;font-size:14px;font-weight:600;letter-spacing:0.5px;">Ачааллаж байна...</div>
         </div>
     </div>
     <style>
@@ -22,22 +23,34 @@
     </style>
 
     <!-- ДЭЭД ЦЭС -->
-    <header class="main-header">
+    <header class="main-header" id="mainHeader">
         <div class="logo-area" onclick="showPage('homePage')">
-            <i class="fas fa-play-circle logo-icon"></i>
             <div class="logo-text">Goy<span>Kino</span></div>
         </div>
+        <div class="header-search">
+            <input type="text" id="mainMovieSearchInput" placeholder="Кино, комик хайх..." oninput="searchMoviesHome()">
+            <span class="header-search-divider"></span>
+            <button class="header-search-btn" onclick="searchMoviesHome()" aria-label="Хайх"><i class="lc" data-icon="search"></i></button>
+            <button class="header-search-close" onclick="closeHeaderSearch()" aria-label="Хаах"><i class="fas fa-times"></i></button>
+        </div>
         <div class="header-right">
+            <button class="header-icon-btn header-search-toggle" onclick="openHeaderSearch()" aria-label="Хайх"><i class="lc" data-icon="search"></i></button>
+            <div class="header-bell-wrap hidden" id="headerBellWrap">
+                <button class="header-icon-btn" onclick="toggleNotifications(event)" aria-label="Мэдэгдэл">
+                    <i class="lc" data-icon="bell"></i><span class="bell-dot hidden" id="bellDot"></span>
+                </button>
+                <div class="notif-panel hidden" id="notifPanel"></div>
+            </div>
             <div id="authBtnContainer">
-                <button class="btn-main" onclick="openModal('loginModal')">
-                    <i class="fas fa-sign-in-alt"></i> Нэвтрэх
+                <button class="btn-main header-login-btn" onclick="openModal('loginModal')" aria-label="Нэвтрэх">
+                    <i class="fas fa-user"></i><span> Нэвтрэх</span>
                 </button>
             </div>
             <div id="topUserAvatarBox" class="user-avatar-top hidden" onclick="showPage('profilePage')">
-                <span id="topUsername" style="font-weight:600;font-size:14px;">Хэрэглэгч</span>
+                <span id="topUsername">Хэрэглэгч</span>
                 <img id="topUserImg" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Avatar">
             </div>
-            <button class="mobile-menu-toggle" id="hamburgerBtn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <button class="mobile-menu-toggle" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Цэс"><i class="lc" data-icon="menu"></i></button>
         </div>
     </header>
 
@@ -46,13 +59,13 @@
         <!-- ХАЖУУГИЙН ЦЭС -->
         <aside class="sidebar" id="appSidebar">
             <nav class="nav-menu">
-                <a id="nav-home" class="active" onclick="showPage('homePage')"><i class="fas fa-home"></i> Нүүр хуудас</a>
-                <a id="nav-allMovies" onclick="showPage('allMoviesPage')"><i class="fas fa-th-list"></i> Бүх кино</a>
-                <a id="nav-vip" onclick="showPage('vipPage')"><i class="fas fa-gem"></i> VIP Багц авах</a>
-                <a id="nav-profile" class="hidden" onclick="showPage('profilePage')"><i class="fas fa-user-circle"></i> Миний профайл</a>
-                <a id="nav-modPanel" class="hidden" onclick="showPage('modPage')"><i class="fas fa-pen-nib"></i> Модератор</a>
+                <a id="nav-home" class="active" onclick="showPage('homePage')"><i class="lc" data-icon="house"></i> Нүүр хуудас</a>
+                <a id="nav-allMovies" onclick="showPage('allMoviesPage')"><i class="lc" data-icon="layers"></i> Бүх кино</a>
+                <a id="nav-vip" onclick="showPage('vipPage')"><i class="lc" data-icon="crown"></i> VIP Багц авах</a>
+                <a id="nav-profile" class="hidden" onclick="showPage('profilePage')"><i class="lc" data-icon="user-cog"></i> Миний профайл</a>
+                <a id="nav-modPanel" class="hidden" onclick="showPage('modPage')"><i class="lc" data-icon="pen-line"></i> Модератор</a>
                 <a id="nav-admin" class="hidden" onclick="showPage('adminPage')">
-                    <i class="fas fa-user-shield"></i> Админ удирдлага
+                    <i class="lc" data-icon="shield-check"></i> Админ удирдлага
                     <span id="reqBadgeCount" class="badge-count" style="margin-left:5px;">0</span>
                 </a>
             </nav>
@@ -63,204 +76,154 @@
 
             <!-- НҮҮР ХУУДАС -->
             <section id="homePage" class="page-section">
+                <!-- 1. Дээд талын том баннер — админ гараар оруулна (6 хүртэл), хуруугаар гүйлгэнэ -->
+                <div class="hero" id="homeCarousel">
+                    <div class="hero-track" id="carouselTrack"></div>
+                    <div class="hero-dots" id="carouselDots"></div>
+                </div>
 
-                <!-- ====== CAROUSEL BANNER ====== -->
-                <div class="carousel-wrapper" id="homeCarousel">
-                    <div class="carousel-track" id="carouselTrack"></div>
-                    <button class="carousel-btn carousel-prev" onclick="carouselMove(-1)"><i class="fas fa-chevron-left"></i></button>
-                    <button class="carousel-btn carousel-next" onclick="carouselMove(1)"><i class="fas fa-chevron-right"></i></button>
-                    <div class="carousel-dots" id="carouselDots"></div>
-                </div>
-                <!-- ============================== -->
+                <!-- 2-8. Үргэлжлүүлэн үзэх, Шинэ, зар, Trending, AI, Орчин үеийн, Түүхэн (script.js: renderHomeMovies) -->
+                <div id="homeSections"></div>
 
-                <div class="search-section-box" style="margin-top:25px;">
-                    <div class="search-bar-inner">
-                        <i class="fas fa-search search-bar-icon"></i>
-                        <input type="text" id="mainMovieSearchInput" placeholder="Үзэхийг хүссэн комик, киногоо хайх..." oninput="searchMoviesHome()">
-                    </div>
-                </div>
-                <div class="movie-section-container">
-                    <h3 class="section-title"><i class="fas fa-fire" style="color:#ef4444;"></i> Трэнд болж буй үзвэрүүд</h3>
-                    <div class="movie-grid" id="grid-trending"></div>
-                </div>
-                <div class="movie-section-container">
-                    <h3 class="section-title"><i class="fas fa-star" style="color:var(--vip-color);"></i> Шинээр нэмэгдсэн үзвэрүүд</h3>
-                    <div class="movie-grid" id="grid-new"></div>
+                <!-- Хайлтын үр дүн — хайлт хийх үед дээрх хэсгүүдийн оронд харагдана -->
+                <div id="homeSearchResults" class="hidden">
+                    <div class="home-sec-head"><h3 id="homeSearchTitle">Хайлтын үр дүн</h3></div>
+                    <div class="movie-grid movie-grid-3" id="homeSearchGrid"></div>
                 </div>
             </section>
 
             <!-- БҮХ КОНТЕНТ -->
             <section id="allMoviesPage" class="page-section hidden">
-                <h3 class="section-title"><i class="fas fa-film"></i> Нийт кино</h3>
-                <div class="category-filter-container">
-                    <button class="filter-btn active" onclick="filterCategory('all', this)">Бүгд</button>
-                    <button class="filter-btn" onclick="filterCategory('web', this)">Mini Drama</button>
-                    <button class="filter-btn" onclick="filterCategory('drama', this)">Web Series</button>
-                </div>
-                <div class="movie-grid" id="grid-all-movies"></div>
+                <!-- Ангилалууд хажуу тийш гүйлгэнэ (script.js: renderCategoryFilters) -->
+                <div class="category-filter-container" id="categoryFilters"></div>
+                <div class="movie-grid movie-grid-3" id="grid-all-movies"></div>
             </section>
 
-            <!-- VIP ХУУДАС - засварласан -->
+            <!-- VIP ХУУДАС — багц сонгоод доод талын товчоор үргэлжлүүлнэ (script.js: VIP_PLANS) -->
             <section id="vipPage" class="page-section hidden">
-                <div class="vip-header-banner">
-                    <h2 style="font-size:32px;color:var(--text-main);">👑 <span style="color:var(--vip-color);">VIP</span> Эрх авах</h2>
-                    <p style="color:var(--text-muted);margin-top:10px;">VIP эрх авснаар платформ дээрх бүх киног хязгааргүй үзнэ.</p>
-                </div>
-                <div class="vip-cards-container">
-                    <!-- 1 Сар -->
-                    <div class="vip-card-box">
-                        <div class="vip-plan-icon"><i class="fas fa-calendar-day"></i></div>
-                        <h3>1 Сарын эрх</h3>
-                        <div class="vip-price-display">5,900 ₮</div>
-                        <div class="vip-duration-tag">30 хоног</div>
-                        <ul>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Бүх контент нээгдэнэ</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Чанартай орчуулга</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> 30 хоногийн хугацаа</li>
-                        </ul>
-                        <button class="btn-buy-vip" onclick="buyVipPackageAction('1 Сарын VIP', 5900, 'VIP-1M')">
-                            <i class="fas fa-shopping-cart"></i> Худалдаж авах
-                        </button>
-                    </div>
+                <div class="vip-page">
+                    <div class="vip-section-label">Багцууд</div>
+                    <div class="vip-plan-list" id="vipPlanList"></div>
 
-                    <!-- 3 Сар (Featured) -->
-                    <div class="vip-card-box featured">
-                        <div class="vip-badge-popular">ХАМГИЙН АЛДАРТАЙ</div>
-                        <div class="vip-plan-icon" style="color:var(--vip-color);"><i class="fas fa-calendar-week"></i></div>
-                        <h3>3 Сарын эрх</h3>
-                        <div class="vip-price-display">12,900 ₮</div>
-                        <div class="vip-duration-tag" style="background:rgba(245,158,11,0.2);color:var(--vip-color);">90 хоног</div>
-                        <ul>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Бүх контент нээгдэнэ</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Хэмнэлттэй сонголт</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> 90 хоногийн хугацаа</li>
-                        </ul>
-                        <button class="btn-vip" style="width:100%;padding:12px;font-size:15px;" onclick="buyVipPackageAction('3 Сарын VIP', 12900, 'VIP-3M')">
-                            <i class="fas fa-crown"></i> Худалдаж авах
-                        </button>
-                    </div>
-
-                    <!-- 1 Жил -->
-                    <div class="vip-card-box">
-                        <div class="vip-plan-icon"><i class="fas fa-calendar-alt"></i></div>
-                        <h3>1 Жилийн эрх</h3>
-                        <div class="vip-price-display">39,900 ₮</div>
-                        <div class="vip-duration-tag">365 хоног</div>
-                        <ul>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Бүх контент нээгдэнэ</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Хамгийн их хэмнэлт</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> 365 хоног</li>
-                        </ul>
-                        <button class="btn-buy-vip" onclick="buyVipPackageAction('1 Жилийн VIP', 39900, 'VIP-YEAR')">
-                            <i class="fas fa-shopping-cart"></i> Худалдаж авах
-                        </button>
-                    </div>
-
-                    <!-- Эцэс хүртэл -->
-                    <div class="vip-card-box lifetime">
-                        <div class="vip-badge-popular" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);">ХЯЗГААРГҮЙ</div>
-                        <div class="vip-plan-icon" style="color:#a78bfa;"><i class="fas fa-infinity"></i></div>
-                        <h3>Эцэс хүртэлх эрх</h3>
-                        <div class="vip-price-display" style="color:#a78bfa;">99,000 ₮</div>
-                        <div class="vip-duration-tag" style="background:rgba(124,58,237,0.2);color:#a78bfa;">Хязгааргүй</div>
-                        <ul>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Бүх контент хязгааргүй</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Ирээдүйн контентүүд</li>
-                            <li><i class="fas fa-check" style="color:#10b981;"></i> Нэг удаагийн төлбөр</li>
-                        </ul>
-                        <button class="btn-lifetime-vip" onclick="buyVipPackageAction('Эцэс хүртэл VIP', 99000, 'VIP-LIFE')">
-                            <i class="fas fa-infinity"></i> Эцэс хүртэл авах
-                        </button>
+                    <!-- Сонгосон багц + үргэлжлүүлэх — доод талд наалттай -->
+                    <div class="vip-checkout">
+                        <div class="vip-checkout-row">
+                            <div>
+                                <div class="vip-section-label">Сонгосон багц</div>
+                                <div class="vip-checkout-title" id="vipSelectedTitle"></div>
+                            </div>
+                            <div class="vip-checkout-right">
+                                <div class="vip-checkout-price" id="vipSelectedPrice"></div>
+                                <div class="vip-checkout-days" id="vipSelectedDays"></div>
+                            </div>
+                        </div>
+                        <button class="vip-continue-btn" id="vipContinueBtn" onclick="continueVipPurchase()">Үргэлжлүүлэх</button>
                     </div>
                 </div>
             </section>
 
             <!-- ПРОФАЙЛ ХУУДАС -->
             <section id="profilePage" class="page-section hidden">
-                <div class="profile-card-wrapper">
-                    <div class="profile-header-main">
-                        <div class="profile-user-info">
-                            <div class="profile-img-container">
-                                <img id="profileMainImg" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="User">
-                            </div>
-                            <div>
-                                <h2 id="profileNameField" style="font-size:22px;">Хэрэглэгчийн нэр</h2>
-                                <span class="badge" id="profileRoleBadge" style="background:#3b82f6;color:white;font-size:12px;margin-top:5px;display:inline-block;">Хэрэглэгч</span>
-                            </div>
-                        </div>
-                        <div style="display:flex;flex-direction:column;gap:8px;">
-                            <button class="btn-main" onclick="openProfileEditBox()"><i class="fas fa-edit"></i> Засах</button>
-                            <button class="btn-danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Гарах</button>
+                <div class="pf-head">
+                    <!-- Avatar дээр дарж шууд солино -->
+                    <button class="pf-avatar" onclick="document.getElementById('pfAvatarInput').click()" aria-label="Зураг солих" title="Зураг солих">
+                        <img id="profileMainImg" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Avatar">
+                        <span class="pf-avatar-cam"><i class="fas fa-camera"></i></span>
+                    </button>
+                    <input type="file" id="pfAvatarInput" accept="image/*" onchange="changeAvatarDirect(event)" style="display:none;">
+                    <div class="pf-info">
+                        <h2 class="pf-name" id="profileNameField">Нэр</h2>
+                        <div class="pf-access" id="profileAccess">Эрх байхгүй</div>
+                        <div class="pf-actions">
+                            <button class="pf-btn" onclick="openProfileEditBox()"><i class="fas fa-pen"></i> Засах</button>
+                            <button class="pf-btn pf-btn-out" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Гарах</button>
                         </div>
                     </div>
-                    <div class="profile-details-grid">
-                        <div class="detail-item-box"><span class="detail-label">Имэйл хаяг</span><strong id="profileEmail">Заагаагүй</strong></div>
-                        <div class="detail-item-box"><span class="detail-label">Утасны дугаар</span><strong id="profilePhoneField">Заагаагүй</strong></div>
-                        <div class="detail-item-box"><span class="detail-label">VIP Статус</span><strong id="profileVipStatus" style="color:var(--vip-color);">Идэвхгүй</strong></div>
-                        <div class="detail-item-box"><span class="detail-label">Дуусах хугацаа</span><strong id="profileVipTimeValue">--/--/----</strong></div>
+                </div>
+
+                <!-- Дуртай / Түрээсэлсэн / Сүүлд үзсэн — хажуу тийш гүйлгэнэ, "Бүгдийг үзэх" дарахад бүгд харагдана -->
+                <div class="pf-section">
+                    <div class="pf-section-head">
+                        <h3><i class="fas fa-heart" style="color:#ff4d6d;"></i> Дуртай</h3>
+                        <button class="pf-see-all" data-target="profileSavedGrid" onclick="openProfileList('saved')" aria-label="Бүгдийг үзэх" title="Бүгдийг үзэх"><i class="lc" data-icon="chevron-right"></i></button>
                     </div>
+                    <div class="rec-row pf-row" id="profileSavedGrid"></div>
                 </div>
-                <div class="profile-history-section">
-                    <h3 class="section-title"><i class="fas fa-key" style="color:var(--vip-color);"></i> Түрээсэлж авсан бүтээлүүд</h3>
-                    <div class="movie-grid" id="profileRentedGrid"></div>
+                <div class="pf-section">
+                    <div class="pf-section-head">
+                        <h3><i class="fas fa-key" style="color:var(--vip-color);"></i> Түрээсэлсэн</h3>
+                        <button class="pf-see-all" data-target="profileRentedGrid" onclick="openProfileList('rented')" aria-label="Бүгдийг үзэх" title="Бүгдийг үзэх"><i class="lc" data-icon="chevron-right"></i></button>
+                    </div>
+                    <div class="rec-row pf-row" id="profileRentedGrid"></div>
                 </div>
-                <div class="profile-history-section">
-                    <h3 class="section-title"><i class="fas fa-history" style="color:#a855f7;"></i> Сүүлд үзсэн түүх</h3>
-                    <div class="movie-grid" id="profileHistoryGrid"></div>
+                <div class="pf-section">
+                    <div class="pf-section-head">
+                        <h3><i class="fas fa-history" style="color:#ffa400;"></i> Сүүлд үзсэн</h3>
+                        <button class="pf-see-all" data-target="profileHistoryGrid" onclick="openProfileList('history')" aria-label="Бүгдийг үзэх" title="Бүгдийг үзэх"><i class="lc" data-icon="chevron-right"></i></button>
+                    </div>
+                    <div class="rec-row pf-row" id="profileHistoryGrid"></div>
                 </div>
+            </section>
+
+            <!-- ПРОФАЙЛ → БҮГДИЙГ ҮЗЭХ: нэг мөрөнд нэг кино -->
+            <section id="profileListPage" class="page-section hidden">
+                <div class="pl-head">
+                    <button class="pl-back" onclick="showPage('profilePage')" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
+                    <h2 class="pl-title" id="profileListTitle"></h2>
+                    <span class="pl-count" id="profileListCount"></span>
+                </div>
+                <div class="pl-list" id="profileListItems"></div>
             </section>
 
             <!-- КИНО ДЭЛГЭРЭНГҮЙ - засварласан video player -->
             <section id="movieProfilePage" class="page-section hidden">
-                <button class="btn-main" onclick="goBackToContent()" style="background:#334155;margin-bottom:15px;"><i class="fas fa-arrow-left"></i> Буцах</button>
-
-                <!-- Жинхэнэ видео тоглуулагч -->
-                <div id="videoPlayerBox" class="hidden" style="margin-bottom:25px;">
-                    <div class="video-player-wrapper">
-                        <div class="video-player-header">
-                            <span id="videoNowPlayingTitle" style="font-weight:600;color:var(--vip-color);"><i class="fas fa-play-circle"></i> Одоо тоглуулж байна...</span>
-                            <button onclick="closeVideoPlayer()" style="background:#ef4444;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-times"></i> Хаах</button>
-                        </div>
-                        <video id="myVideo" controls style="width:100%;border-radius:0 0 12px 12px;background:#000;max-height:500px;">
-                            Таны броузер видеог дэмжихгүй байна.
-                        </video>
-                    </div>
+                <!-- COVER HERO — доод хэсэг нь сүүдэрлэж арын өнгөнд уусна -->
+                <div class="mp-hero">
+                    <div class="mp-hero-media" id="mProfCoverContainer"></div>
+                    <button class="mp-back-btn" onclick="goBackToContent()" aria-label="Буцах"><i class="fas fa-arrow-left"></i></button>
+                    <button class="mp-save-btn" id="mProfSaveBtn" onclick="toggleSaveMovie()" aria-label="Хадгалах" title="Хадгалах"><i class="far fa-heart"></i></button>
                 </div>
 
                 <!-- КИНО + САНАЛ БОЛГОХ хажуугийн layout -->
-                <div class="movie-detail-with-sidebar">
-                    <!-- Үндсэн кино мэдээлэл -->
-                    <div class="movie-detail-main">
-                        <div class="movie-profile-layout">
-                            <div class="m-profile-left" id="mProfCoverContainer"></div>
-                            <div class="m-profile-right">
-                                <span class="badge" id="mProfType">ТӨРӨЛ</span>
-                                <h1 class="movie-title-main" id="mProfTitle">Киноны нэр</h1>
-                                <p class="movie-desc-text" id="mProfDesc"></p>
-                                <div style="font-size:14px;margin-bottom:20px;display:flex;gap:15px;">
-                                    <span>Статус: <strong id="mProfStatus" style="color:#10b981;"></strong></span>
-                                    <span>Үзсэн тоо: <strong id="mProfViews">0</strong></span>
-                                </div>
-                                <div class="price-action-box">
-                                    <div>
-                                        <span style="font-size:12px;color:var(--text-muted);display:block;">Үзэх үнэ</span>
-                                        <strong id="mProfPrice" style="font-size:22px;color:var(--vip-color);">0 ₮</strong>
-                                    </div>
-                                    <div class="action-buttons-flex" id="movieActionButtonsContainer"></div>
-                                </div>
+                <div class="mp-body">
+                    <!-- Нэр, доор нь он | хугацаа | үнэлгээ | үзэлт | орчуулагч -->
+                    <div class="mp-head">
+                        <h1 class="mp-title" id="mProfTitle">Киноны нэр</h1>
+                        <div class="mp-info" id="mProfInfo"></div>
+                    </div>
+
+                    <!-- Эрхгүй: [Түрээслэх үнэ] [VIP] — эрхтэй: [▶ Үзэх] (script.js: renderMovieActionButtons) -->
+                    <div class="mp-actions" id="movieActionButtonsContainer"></div>
+
+                    <!-- "Тайлбар: ..." — 3 мөрөөс урт бол сүүлийн мөрийн баруун талд "Дэлгэрэнгүй ⌄" -->
+                    <div class="mp-desc-wrap">
+                        <p class="mp-desc" id="mProfDescBox"><span class="mp-desc-label">Тайлбар:</span> <span id="mProfDesc"></span></p>
+                        <button class="mp-more-btn hidden" id="mProfMoreBtn" onclick="toggleMovieDesc()">Дэлгэрэнгүй <i class="fas fa-chevron-down"></i></button>
+                    </div>
+
+                    <!-- Жинхэнэ видео тоглуулагч -->
+                    <div id="videoPlayerBox" class="hidden" style="margin-bottom:25px;">
+                        <div class="video-player-wrapper">
+                            <div class="video-player-header">
+                                <span id="videoNowPlayingTitle" style="font-weight:600;color:var(--vip-color);"><i class="fas fa-play-circle"></i> Одоо тоглуулж байна...</span>
+                                <button onclick="closeVideoPlayer()" style="background:#ef4444;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-times"></i> Хаах</button>
                             </div>
-                        </div>
-                        <div id="episodesBlockContainer" class="profile-history-section hidden" style="margin-top:40px;border-top:1px solid var(--border-color);padding-top:20px;">
-                            <h3 class="section-title"><i class="fas fa-list-ol"></i> Бүх ангиуд</h3>
-                            <div class="episodes-grid-list" id="mProfEpisodesGrid"></div>
+                            <video id="myVideo" controls style="width:100%;border-radius:0 0 12px 12px;background:#000;max-height:500px;">
+                                Таны броузер видеог дэмжихгүй байна.
+                            </video>
                         </div>
                     </div>
 
-                    <!-- ХАЖУУГИЙН САНАЛ БОЛГОХ КИНО -->
-                    <aside class="recommended-sidebar">
-                        <h4 class="rec-sidebar-title"><i class="fas fa-thumbs-up" style="color:var(--primary);"></i> Санал болгох</h4>
-                        <div id="recommendedMoviesList"></div>
-                    </aside>
+                    <div id="episodesBlockContainer" class="mp-section hidden">
+                        <h3 class="mp-section-label">Бүх ангиуд</h3>
+                        <div class="episodes-grid-list" id="mProfEpisodesGrid"></div>
+                    </div>
+
+                    <!-- Санал болгох — хажуу тийш гүйлгэнэ -->
+                    <div class="mp-section">
+                        <h3 class="mp-section-label">Санал болгох</h3>
+                        <div class="rec-row" id="recommendedMoviesList"></div>
+                    </div>
                 </div>
             </section>
 
@@ -285,7 +248,7 @@
                             </div>
                             <div class="form-group"><label>Тайлбар</label><textarea id="modReqDesc" rows="3" placeholder="Энэхүү бүтээлийн тухай товч тайлбар..."></textarea></div>
                             <div class="form-group-row">
-                                <div class="form-group"><label>Төрөл</label><select id="modReqCategory"><option value="web">Вэбтун / Комик</option><option value="drama">Цуврал кино</option></select></div>
+                                <div class="form-group"><label>Төрөл</label><select id="modReqCategory"><option value="modern">Орчин үеийн</option><option value="historical">Түүхэн</option><option value="ai">AI</option></select></div>
                                 <div class="form-group"><label>Статус</label><select id="modReqStatus"><option value="Үргэлжилж байгаа">Үргэлжилж байгаа</option><option value="Дууссан">Дууссан</option></select></div>
                             </div>
                             <div class="form-group"><label>Үзэх үнэ (0 бол үнэгүй)</label><input type="number" id="modReqPrice" value="0"></div>
@@ -328,6 +291,7 @@
                     <button id="btn-tab-movies" class="active" onclick="switchAdminTab('moviesTab')">Контент нэмэх</button>
                     <button id="btn-tab-requests" onclick="switchAdminTab('requestsTab')">Мод өгөх Эрх нээх</button>
                     <button id="btn-tab-users" onclick="switchAdminTab('usersTab')">Хэрэглэгчид ба Эрхүүд</button>
+                    <button id="btn-tab-banners" onclick="switchAdminTab('bannersTab')">Баннер</button>
                 </div>
 
                 <!-- Таб 1 -->
@@ -342,9 +306,19 @@
                                 <div class="form-group"><label>Үнэ (0 бол үнэгүй)</label><input type="number" id="admPrice" value="0"></div>
                             </div>
                             <div class="form-group-row">
-                                <div class="form-group"><label>Ангилал</label><select id="admCategory"><option value="web">Вэбтун</option><option value="drama">Цуврал кино</option></select></div>
+                                <div class="form-group"><label>Ангилал</label><select id="admCategory"><option value="modern">Орчин үеийн</option><option value="historical">Түүхэн</option><option value="ai">AI</option></select></div>
                                 <div class="form-group"><label>Статус</label><select id="admStatus"><option value="Үргэлжилж байгаа">Үргэлжилж байгаа</option><option value="Дууссан">Дууссан</option></select></div>
                             </div>
+                            <!-- Кино хуудсанд нэрийн доор харагдана -->
+                            <div class="form-group-row">
+                                <div class="form-group"><label>Он</label><input type="number" id="admYear" placeholder="2026" min="1900" max="2100"></div>
+                                <div class="form-group"><label>Үргэлжлэх хугацаа (минут)</label><input type="number" id="admDuration" placeholder="125 = 2 цаг 5 мин" min="0"></div>
+                            </div>
+                            <div class="form-group-row">
+                                <div class="form-group"><label>Үнэлгээ (10-аас)</label><input type="number" id="admRating" placeholder="8.5" min="0" max="10" step="0.1"></div>
+                                <div class="form-group"><label>Орчуулагч</label><input type="text" id="admTranslator" placeholder="Нэр"></div>
+                            </div>
+                            <div class="form-group"><label>Ангилалууд (таслалаар)</label><input type="text" id="admGenres" placeholder="Романтик, Түүхэн, Уран зөгнөлт"></div>
                             <!-- Cover зураг оруулах - gallery болон URL 2 аргаар -->
                             <div class="form-group">
                                 <label>Cover зураг</label>
@@ -354,7 +328,7 @@
                                             <i class="fas fa-image"></i> Галерейгаас сонгох
                                         </button>
                                         <span style="color:var(--text-muted);font-size:12px;">эсвэл</span>
-                                        <button type="button" class="btn-upload-file" style="background:#334155;" onclick="toggleCoverUrlInput()">
+                                        <button type="button" class="btn-upload-file" style="background:#1c2031;" onclick="toggleCoverUrlInput()">
                                             <i class="fas fa-link"></i> URL оруулах
                                         </button>
                                     </div>
@@ -362,7 +336,7 @@
                                     <input type="text" id="admCoverUrl" placeholder="https://... (Cover зургийн URL)" style="display:none;margin-top:8px;">
                                     <div id="coverPreviewBox" style="margin-top:10px;display:none;">
                                         <img id="coverPreviewImg" src="" style="width:120px;height:160px;object-fit:cover;border-radius:8px;border:2px solid var(--vip-color);">
-                                        <span id="coverPreviewLabel" style="display:block;font-size:11px;color:#10b981;margin-top:4px;"><i class="fas fa-check"></i> Cover сонгогдлоо</span>
+                                        <span id="coverPreviewLabel" style="display:block;font-size:11px;color:#00c388;margin-top:4px;"><i class="fas fa-check"></i> Cover сонгогдлоо</span>
                                     </div>
                                 </div>
                             </div>
@@ -390,7 +364,7 @@
                                             <i class="fas fa-file-video"></i> Галерейгаас видео
                                         </button>
                                         <span style="color:var(--text-muted);font-size:12px;">эсвэл</span>
-                                        <button type="button" class="btn-upload-file" style="background:#334155;" onclick="toggleVideoUrlInput()">
+                                        <button type="button" class="btn-upload-file" style="background:#1c2031;" onclick="toggleVideoUrlInput()">
                                             <i class="fas fa-link"></i> URL/Линк
                                         </button>
                                     </div>
@@ -439,6 +413,29 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Таб 4: Нүүр хуудасны баннерууд -->
+                <div id="bannersTab" class="admin-tab-content hidden">
+                    <div class="admin-grid-layout">
+                        <div class="admin-card-box">
+                            <h3 style="margin-bottom:6px;">Нүүр баннер <span class="banner-count" id="heroBannerCount">0/6</span></h3>
+                            <p class="banner-help">Нүүр хуудасны дээд талын том слайд. Өргөн зураг (16:9) тохиромжтой.</p>
+                            <div class="form-group"><label>Зураг</label><input type="file" id="heroBannerFile" accept="image/*"></div>
+                            <div class="form-group"><label>Дарахад нээгдэх кино (заавал биш)</label><select id="heroBannerMovie"></select></div>
+                            <button class="btn-admin-submit" onclick="adminAddBanner('hero')">Баннер нэмэх</button>
+                            <div class="banner-admin-list" id="heroBannerList"></div>
+                        </div>
+                        <div class="admin-card-box">
+                            <h3 style="margin-bottom:6px;">Зарын баннер</h3>
+                            <p class="banner-help">"Шинэ" хэсгийн доор гарах нарийн урт баннер (≈ 4:1).</p>
+                            <div class="form-group"><label>Зураг</label><input type="file" id="adBannerFile" accept="image/*"></div>
+                            <div class="form-group"><label>Дарахад нээгдэх кино (заавал биш)</label><select id="adBannerMovie"></select></div>
+                            <div class="form-group"><label>Эсвэл гадны холбоос (заавал биш)</label><input type="text" id="adBannerLink" placeholder="https://..."></div>
+                            <button class="btn-admin-submit" onclick="adminAddBanner('ad')">Зар нэмэх</button>
+                            <div class="banner-admin-list" id="adBannerList"></div>
+                        </div>
+                    </div>
+                </div>
             </section>
 
         </main>
@@ -460,12 +457,12 @@
                     <label>Нууц үг</label>
                     <div style="position:relative;width:100%;">
                         <input type="password" id="loginPass" placeholder="******" style="width:100%;padding-right:40px;">
-                        <i class="fas fa-eye" id="loginPassIcon" onclick="togglePasswordVisibility('loginPass','loginPassIcon')" style="position:absolute;right:12px;top:12px;cursor:pointer;color:#64748b;"></i>
+                        <i class="fas fa-eye" id="loginPassIcon" onclick="togglePasswordVisibility('loginPass','loginPassIcon')" style="position:absolute;right:12px;top:12px;cursor:pointer;color:#4e566e;"></i>
                     </div>
                 </div>
                 <button class="btn-main" style="width:100%;margin-top:10px;" onclick="loginLogic()">Нэвтрэх</button>
                 <p style="text-align:right;margin-top:10px;">
-                    <a href="#" onclick="openForgotModal()" style="font-size:12px;color:#94a3b8;text-decoration:none;">Нууц үг мартсан уу?</a>
+                    <a href="#" onclick="openForgotModal()" style="font-size:12px;color:#717d92;text-decoration:none;">Нууц үг мартсан уу?</a>
                 </p>
                 <p style="text-align:center;font-size:13px;margin-top:15px;color:var(--text-muted);">
                     Бүртгэл байхгүй юу? <a href="#" style="color:var(--primary);" onclick="switchForm('registerForm')">Шинээр бүртгүүлэх</a>
@@ -480,7 +477,7 @@
                     <label>Нууц үг</label>
                     <div style="position:relative;width:100%;">
                         <input type="password" id="regPass" placeholder="••••••••" style="width:100%;padding-right:40px;">
-                        <i class="fas fa-eye" id="regPassIcon" onclick="togglePasswordVisibility('regPass','regPassIcon')" style="position:absolute;right:12px;top:12px;cursor:pointer;color:#64748b;"></i>
+                        <i class="fas fa-eye" id="regPassIcon" onclick="togglePasswordVisibility('regPass','regPassIcon')" style="position:absolute;right:12px;top:12px;cursor:pointer;color:#4e566e;"></i>
                     </div>
                 </div>
                 <button class="btn-main" style="width:100%;margin-top:10px;" onclick="registerLogic()">Бүртгүүлэх</button>
@@ -517,27 +514,32 @@
     <div id="paymentModal" class="modal-overlay">
         <div class="modal-card payment-modal-box">
             <button class="btn-close-modal" onclick="closeModal('paymentModal')">×</button>
-            <div class="payment-badge-title">💸 Төлбөр шилжүүлэх</div>
-            <div class="payment-amount-display"><span id="payAmount">0 ₮</span></div>
-            <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);padding:10px;border-radius:8px;margin-bottom:15px;font-size:12px;color:#93c5fd;text-align:left;line-height:1.5;">
+            <div class="pay-title"><span id="payTitleIcon"><i class="lc" data-icon="crown"></i></span> <span id="payTitleText">Багц авах</span></div>
+            <div class="pay-amount" id="payAmount">0 ₮</div>
+            <div style="background:rgba(201,161,90,0.1);border:1px solid rgba(201,161,90,0.3);padding:10px;border-radius:8px;margin-bottom:15px;font-size:12px;color:#e8d3a8;text-align:left;line-height:1.5;">
                 <i class="fas fa-info-circle" style="color:var(--primary);margin-right:5px;"></i>
                 <strong>Чухал санамж:</strong> Гүйлгээний утгыг зөв оруулна уу. Төлбөр хийгдсэнээс хойш <strong>8 цагийн дотор</strong> таны эрх автоматаар сунгагдана.
             </div>
-            <p style="font-size:13px;color:var(--text-muted);text-align:left;margin-bottom:5px;">Гүйлгээний утга:</p>
-            <div class="bank-account-item">
-                <span id="payDetail" style="font-weight:800;color:var(--vip-color);letter-spacing:0.5px;">КОД-УТАС</span>
-                <button class="btn-copy-inline" onclick="copyText('payDetail')"><i class="fas fa-copy"></i> Хуулах</button>
-            </div>
-            <p style="font-size:13px;color:var(--text-muted);text-align:left;margin-top:15px;margin-bottom:5px;">Хүлээн авах данс:</p>
-            <div class="bank-account-item">
-                <div class="bank-info-left">
-                    <div class="bank-name">Хаан Банк (Хүлээн авагч:Энхнамуун Хандсүрэн )</div>
-                    <div class="bank-num" id="khanBankNum">910005005250718075</div>
+
+            <div class="pay-field">
+                <div class="pay-field-label">Гүйлгээний утга</div>
+                <div class="pay-row">
+                    <span class="pay-value pay-value-gold" id="payDetail">КОД-УТАС</span>
+                    <button class="pay-copy" onclick="copyText('payDetail')" aria-label="Хуулах" title="Хуулах"><i class="far fa-copy"></i></button>
                 </div>
-                <button class="btn-copy-inline" onclick="copyText('khanBankNum')"><i class="fas fa-copy"></i> Данс хуулах</button>
             </div>
-            <br><br>
-            <button class="btn-vip" style="width:100%;padding:12px;font-size:15px;" onclick="confirmPaymentSubmit()">Төлбөр баталгаажуулах</button>
+
+            <div class="pay-field">
+                <div class="pay-field-label">Дансны дугаар</div>
+                <div class="pay-row">
+                    <span class="pay-value" id="khanBankNum">MN180005005251499754</span>
+                    <button class="pay-copy" onclick="copyText('khanBankNum')" aria-label="Хуулах" title="Хуулах"><i class="far fa-copy"></i></button>
+                </div>
+                <div class="pay-hint" id="bankNameDisplay">Банк: Хаан Банк
+Хүлээн авагч: ХОНГОРЗУЛ АМАРЖАРГАЛ</div>
+            </div>
+
+            <button class="pay-submit" onclick="confirmPaymentSubmit()">Төлбөр баталгаажуулах</button>
         </div>
     </div>
 
@@ -549,7 +551,7 @@
             <!-- Алхам 1: Имэйл оруулах -->
             <div id="forgotStep1">
                 <div style="text-align:center;margin-bottom:24px;">
-                    <div style="width:64px;height:64px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
+                    <div style="width:64px;height:64px;background:linear-gradient(135deg,#c9a15a,#1c2031);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
                         <i class="fas fa-lock" style="color:#fff;"></i>
                     </div>
                     <h3 style="margin:0 0 6px;font-size:20px;">Нууц үг сэргээх</h3>
@@ -568,22 +570,22 @@
             <!-- Алхам 2: OTP код оруулах -->
             <div id="forgotStep2" class="hidden">
                 <div style="text-align:center;margin-bottom:24px;">
-                    <div style="width:64px;height:64px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
+                    <div style="width:64px;height:64px;background:linear-gradient(135deg,#c9a15a,#1c2031);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
                         <i class="fas fa-envelope-open-text" style="color:#fff;"></i>
                     </div>
                     <h3 style="margin:0 0 6px;font-size:20px;">Кодоо оруулна уу</h3>
                     <p style="font-size:13px;color:var(--text-muted);margin:0;line-height:1.6;">
-                        <strong id="otpTargetEmail" style="color:#a5b4fc;"></strong><br>хаяг руу нэг удаагийн код илгээгдлээ
+                        <strong id="otpTargetEmail" style="color:#e8d3a8;"></strong><br>хаяг руу нэг удаагийн код илгээгдлээ
                     </p>
                 </div>
                 <input type="text" id="otpCodeInput" placeholder="· · · · · · · ·" maxlength="8" inputmode="numeric"
-                    style="width:100%;text-align:center;font-size:32px;font-weight:900;letter-spacing:12px;background:var(--bg-dark);border:1.5px solid var(--border-color);padding:16px;border-radius:12px;color:#a5b4fc;outline:none;box-sizing:border-box;margin-bottom:16px;">
+                    style="width:100%;text-align:center;font-size:32px;font-weight:900;letter-spacing:12px;background:var(--bg-dark);border:1.5px solid var(--border-color);padding:16px;border-radius:12px;color:#e8d3a8;outline:none;box-sizing:border-box;margin-bottom:16px;">
                 <button class="btn-main" style="width:100%;padding:13px;font-size:15px;margin-bottom:14px;" onclick="verifyOtpLogic()">
                     <i class="fas fa-check-circle" style="margin-right:8px;"></i>Баталгаажуулах
                 </button>
                 <div style="text-align:center;">
                     <button id="resendOtpBtn" onclick="resendOtpLogic()"
-                        style="background:none;border:none;color:#6366f1;font-size:13px;cursor:pointer;padding:4px 0;text-decoration:underline;">
+                        style="background:none;border:none;color:#c9a15a;font-size:13px;cursor:pointer;padding:4px 0;text-decoration:underline;">
                         Дахин код авах
                     </button>
                     <span id="resendCountdown" style="font-size:13px;color:var(--text-muted);display:none;"></span>
@@ -593,10 +595,10 @@
             <!-- Алхам 3: Шинэ нууц үг -->
             <div id="forgotStep3" class="hidden">
                 <div style="text-align:center;margin-bottom:24px;">
-                    <div style="width:64px;height:64px;background:linear-gradient(135deg,#10b981,#059669);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
+                    <div style="width:64px;height:64px;background:linear-gradient(135deg,#00c388,#00a874);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px;">
                         <i class="fas fa-shield-check" style="color:#fff;"></i>
                     </div>
-                    <h3 style="margin:0 0 6px;font-size:20px;color:#10b981;">Баталгаажлаа!</h3>
+                    <h3 style="margin:0 0 6px;font-size:20px;color:#00c388;">Баталгаажлаа!</h3>
                     <p style="font-size:13px;color:var(--text-muted);margin:0;">Шинэ нууц үгээ оруулна уу</p>
                 </div>
                 <div class="form-group">
@@ -605,7 +607,7 @@
                         <input type="password" id="newPassInput" placeholder="Дор хаяж 6 тэмдэгт"
                             style="width:100%;padding-right:44px;background:var(--bg-dark);border:1.5px solid var(--border-color);padding:12px 44px 12px 16px;border-radius:10px;color:#fff;font-size:14px;outline:none;box-sizing:border-box;">
                         <i class="fas fa-eye" id="newPassIcon" onclick="togglePasswordVisibility('newPassInput','newPassIcon')"
-                            style="position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;color:#64748b;"></i>
+                            style="position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;color:#4e566e;"></i>
                     </div>
                 </div>
                 <button class="btn-main" style="width:100%;margin-top:4px;padding:13px;font-size:15px;" onclick="resetPasswordLogic()">
@@ -622,13 +624,15 @@
             <p id="confirmMessage" style="color:var(--text-muted);margin-bottom:25px;font-size:14px;line-height:1.5;"></p>
             <div style="display:flex;gap:10px;justify-content:center;">
                 <button id="confirmYesBtn" class="btn-danger" onclick="confirmYes()" style="padding:10px 28px;">Тийм, устгах</button>
-                <button onclick="closeConfirmModal()" style="background:#475569;color:#fff;border:none;padding:10px 28px;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s;">Болих</button>
+                <button onclick="closeConfirmModal()" style="background:#2a3045;color:#fff;border:none;padding:10px 28px;border-radius:8px;cursor:pointer;font-weight:600;transition:all 0.2s;">Болих</button>
             </div>
         </div>
     </div>
 
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.10/hls.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+        integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.4.10/hls.min.js"
+        integrity="sha384-PfKiMz2fUcohSkBuS0Rpyl3laijRploePYIEQuN0FeSUDx3ChHI6OrzOmMiHJJTw" crossorigin="anonymous"></script>
     <script src="config.js"></script>
     <script src="script.js"></script>
 </body>
