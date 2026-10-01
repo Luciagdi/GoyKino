@@ -729,7 +729,16 @@ function updateLocalState() {
 }
 
 // ===== ХУУДАС ШИЛЖИЛТ =====
-function showPage(pageId) {
+function showPage(pageId, opts = {}) {
+    // Шинэ хуудас бүрийг browser history-д нэмнэ — "‹" товч болон утасны "буцах" ажиллана.
+    // Нэг кино хуудаснаас өөр кино руу ороход ч шинэ алхам болно.
+    let movieId = pageId === 'movieProfilePage' ? currentSelectedMovieId : null;
+    let st = history.state || {};
+    if (!opts.fromPop && (st.page !== pageId || st.movieId !== movieId)) {
+        history.pushState({ page: pageId, movieId, idx: (st.idx || 0) + 1 }, '');
+    }
+    if (pageId !== 'movieProfilePage') closeVideoPlayer();
+
     document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
     let target = document.getElementById(pageId);
     if (target) target.classList.remove('hidden');
@@ -771,6 +780,24 @@ function showPage(pageId) {
     window.scrollTo(0, 0);
     updateHeaderStyle();
 }
+
+// ===== БУЦАХ =====
+// "‹" товч — өмнөх хуудас руу. Түүх байхгүй бол (шууд линкээр орсон) нүүр хуудас руу.
+function goBack() {
+    if ((history.state?.idx || 0) > 0) history.back();
+    else goHome();
+}
+
+history.replaceState({ page: 'homePage', movieId: null, idx: 0 }, '');
+
+window.addEventListener('popstate', (e) => {
+    let st = e.state || { page: 'homePage' };
+    if (st.page === 'movieProfilePage' && st.movieId && st.movieId !== currentSelectedMovieId) {
+        showMovieProfile(st.movieId, { fromPop: true });
+    } else {
+        showPage(st.page || 'homePage', { fromPop: true });
+    }
+});
 
 // Лого дарахад — хайлтыг цэвэрлээд нүүр хуудас руу (тоглож буй видеог зогсооно)
 function goHome() {
@@ -1162,7 +1189,7 @@ async function fetchEpisodes(movieId) {
     return [];
 }
 
-async function showMovieProfile(id) {
+async function showMovieProfile(id, opts = {}) {
     let m = movies.find(mv => mv.id === id);
     if (!m) {
         // Хайлтаар олдсон, гэхдээ эхний 100-д ороогүй кино
@@ -1214,7 +1241,7 @@ async function showMovieProfile(id) {
 
     closeVideoPlayer();
     renderMovieActionButtons(m);
-    showPage('movieProfilePage');
+    showPage('movieProfilePage', opts);
     renderRecommendedMovies(id);
 }
 
@@ -1531,12 +1558,6 @@ function closeVideoPlayer() {
     if (videoPlayerBox) videoPlayerBox.classList.add('hidden');
     if (myVideo) { myVideo.pause(); myVideo.src = ''; }
     document.querySelectorAll('.ep-btn').forEach(btn => btn.classList.remove('active-ep'));
-}
-
-function goBackToContent() {
-    closeVideoPlayer();
-    if (currentActiveCategory !== 'all') showPage('allMoviesPage');
-    else showPage('homePage');
 }
 
 // ===== VIP =====

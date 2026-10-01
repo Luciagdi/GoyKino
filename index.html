@@ -94,6 +94,10 @@
 
             <!-- БҮХ КОНТЕНТ -->
             <section id="allMoviesPage" class="page-section hidden">
+                <div class="page-head">
+                    <button class="page-back" onclick="goBack()" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
+                    <h2 class="page-head-title">Бүх кино</h2>
+                </div>
                 <!-- Ангилалууд хажуу тийш гүйлгэнэ (script.js: renderCategoryFilters) -->
                 <div class="category-filter-container" id="categoryFilters"></div>
                 <div class="movie-grid movie-grid-3" id="grid-all-movies"></div>
@@ -102,10 +106,13 @@
             <!-- VIP ХУУДАС — багц сонгоод доод талын товчоор үргэлжлүүлнэ (script.js: VIP_PLANS) -->
             <section id="vipPage" class="page-section hidden">
                 <div class="vip-page">
+                <div class="page-head">
+                    <button class="page-back" onclick="goBack()" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
+                </div>
                     <!-- VIP танилцуулга — алтан туяатай, давуу талууд -->
                     <div class="vip-hero">
                         <div class="vip-hero-crown"><i class="lc" data-icon="crown"></i></div>
-                        <h2 class="vip-hero-title">GoyKino <span>VIP</span></h2>
+                        <h2 class="vip-hero-title"><span>VIP</span> эрх</h2>
                         <p class="vip-hero-sub">Бүх кинонд хязгааргүй нэвтэрч, дуртай газраасаа үзээрэй.</p>
                         <div class="vip-perks">
                             <div class="vip-perk"><i class="fas fa-film"></i><span>Бүх кино нээлттэй</span></div>
@@ -137,6 +144,10 @@
 
             <!-- ПРОФАЙЛ ХУУДАС -->
             <section id="profilePage" class="page-section hidden">
+                <div class="page-head">
+                    <button class="page-back" onclick="goBack()" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
+                    <h2 class="page-head-title">Профайл</h2>
+                </div>
                 <div class="pf-head">
                     <!-- Avatar дээр дарж шууд солино -->
                     <button class="pf-avatar" onclick="document.getElementById('pfAvatarInput').click()" aria-label="Зураг солих" title="Зураг солих">
@@ -181,7 +192,7 @@
             <!-- ПРОФАЙЛ → БҮГДИЙГ ҮЗЭХ: нэг мөрөнд нэг кино -->
             <section id="profileListPage" class="page-section hidden">
                 <div class="pl-head">
-                    <button class="pl-back" onclick="showPage('profilePage')" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
+                    <button class="pl-back" onclick="goBack()" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
                     <h2 class="pl-title" id="profileListTitle"></h2>
                     <span class="pl-count" id="profileListCount"></span>
                 </div>
@@ -193,7 +204,7 @@
                 <!-- COVER HERO — доод хэсэг нь сүүдэрлэж арын өнгөнд уусна -->
                 <div class="mp-hero">
                     <div class="mp-hero-media" id="mProfCoverContainer"></div>
-                    <button class="mp-back-btn" onclick="goBackToContent()" aria-label="Буцах"><i class="fas fa-arrow-left"></i></button>
+                    <button class="mp-back-btn" onclick="goBack()" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
                     <button class="mp-save-btn" id="mProfSaveBtn" onclick="toggleSaveMovie()" aria-label="Хадгалах" title="Хадгалах"><i class="far fa-heart"></i></button>
                 </div>
 
@@ -241,7 +252,10 @@
 
             <!-- МОДЕРАТОР ПАНЕЛ -->
             <section id="modPage" class="page-section hidden">
-                <h2 class="section-title"><i class="fas fa-pen-nib"></i> Модераторын удирдлага</h2>
+                <div class="page-head">
+                    <button class="page-back" onclick="goBack()" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
+                    <h2 class="page-head-title">Модераторын удирдлага</h2>
+                </div>
 
                 <!-- Mod tabs -->
                 <div class="admin-tabs-nav">
@@ -298,7 +312,10 @@
 
             <!-- АДМИН ПАНЕЛ - засварласан -->
             <section id="adminPage" class="page-section hidden">
-                <h2 class="section-title"><i class="fas fa-user-shield"></i> Системийн удирдлагын хэсэг</h2>
+                <div class="page-head">
+                    <button class="page-back" onclick="goBack()" aria-label="Буцах"><i class="lc" data-icon="chevron-left"></i></button>
+                    <h2 class="page-head-title">Админ удирдлага</h2>
+                </div>
                 <div class="admin-tabs-nav">
                     <button id="btn-tab-overview" class="active" onclick="switchAdminTab('overviewTab')">Тойм</button>
                     <button id="btn-tab-movies" onclick="switchAdminTab('moviesTab')">Кино нэмэх</button>

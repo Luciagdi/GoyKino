@@ -117,8 +117,9 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
             mask-image:linear-gradient(to right,transparent 0,#000 14%,#000 86%,transparent 100%);}
 .mp-hero-media::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;
     background:linear-gradient(to bottom,rgba(3,7,27,0) 30%,rgba(3,7,27,0.12) 42%,rgba(3,7,27,0.32) 54%,rgba(3,7,27,0.58) 66%,rgba(3,7,27,0.82) 78%,rgba(3,7,27,0.96) 90%,var(--bg-dark) 100%);}
-.mp-back-btn{position:absolute;top:calc(var(--header-h) + 14px);left:16px;z-index:3;width:40px;height:40px;border-radius:50%;background:rgba(3,7,27,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:15px;cursor:pointer;}
+.mp-back-btn{position:absolute;display:flex;align-items:center;justify-content:center;top:calc(var(--header-h) + 14px);left:16px;z-index:3;width:40px;height:40px;border-radius:50%;background:rgba(3,7,27,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:15px;cursor:pointer;}
 .mp-back-btn:hover{background:var(--primary);}
+.mp-back-btn svg.lc{width:22px;height:22px;}
 /* 🔖 Хадгалах — poster-ийн баруун дээд буланд */
 .mp-save-btn{position:absolute;top:calc(var(--header-h) + 14px);right:16px;z-index:3;width:40px;height:40px;border-radius:50%;background:rgba(3,7,27,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:16px;cursor:pointer;}
 .mp-save-btn:hover{background:rgba(3,7,27,0.75);border-color:#ff4d6d;}
@@ -216,6 +217,13 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
 .vip-plan-radio{width:22px;height:22px;flex-shrink:0;border-radius:50%;border:2px solid #2a3045;position:relative;transition:all 0.2s;}
 .vip-plan.selected .vip-plan-radio{border-color:var(--primary);background:var(--primary);}
 .vip-plan.selected .vip-plan-radio::after{content:'';position:absolute;left:6px;top:2px;width:5px;height:10px;border:solid var(--on-primary);border-width:0 2px 2px 0;transform:rotate(45deg);}
+/* Хязгааргүй — үргэлж нил ягаан (сонгоогүй үед ч) */
+.vip-plan.lifetime{border-color:rgba(167,139,250,0.45);background:linear-gradient(180deg,rgba(139,92,246,0.14) 0%,rgba(139,92,246,0.04) 100%);}
+.vip-plan.lifetime .vip-plan-icon{background:rgba(139,92,246,0.2);color:#c4b5fd;}
+.vip-plan.lifetime .vip-plan-price{color:#c4b5fd;}
+.vip-plan.lifetime .vip-plan-radio{border-color:rgba(167,139,250,0.5);}
+.vip-plan.lifetime.selected{border-color:#a78bfa;background:linear-gradient(180deg,rgba(139,92,246,0.24) 0%,rgba(139,92,246,0.07) 100%);box-shadow:0 10px 30px rgba(139,92,246,0.18);}
+.vip-plan.lifetime.selected .vip-plan-radio{border-color:#a78bfa;background:#a78bfa;}
 .vip-checkout{position:sticky;bottom:0;z-index:5;padding:30px 0 20px;background:linear-gradient(to bottom,rgba(3,7,27,0) 0,var(--bg-dark) 28px);}
 .vip-checkout-row{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;}
 .vip-checkout .vip-section-label{margin-bottom:4px;font-size:11px;}
@@ -253,10 +261,11 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
 .pf-see-all svg.lc{width:18px;height:18px;}
 .pf-see-all:hover{color:var(--primary);}
 /* "Бүгдийг үзэх" хуудас — нэг мөрөнд нэг кино */
-.pl-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
-.pl-back{width:38px;height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-main);}
-.pl-back svg.lc{width:20px;height:20px;}
-.pl-back:hover{border-color:var(--primary);color:var(--primary);}
+.pl-head,.page-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.page-head-title{font-size:20px;font-weight:800;}
+.pl-back,.page-back{width:38px;height:38px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:pointer;background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-main);}
+.pl-back svg.lc,.page-back svg.lc{width:20px;height:20px;}
+.pl-back:hover,.page-back:hover{border-color:var(--primary);color:var(--primary);}
 .pl-title{font-size:20px;font-weight:800;}
 .pl-count{font-size:13px;font-weight:700;color:var(--text-muted);background:var(--bg-card);padding:2px 9px;border-radius:999px;}
 .pl-list{display:flex;flex-direction:column;}
