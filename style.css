@@ -178,6 +178,9 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
 
 /* VIDEO PLAYER */
 .video-player-wrapper{background:#000;border-radius:var(--radius);overflow:hidden;border:2px solid var(--vip-color);}
+.video-stage{position:relative;}
+.video-tap-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;border:none;cursor:pointer;
+    background:var(--primary);color:var(--on-primary);font-size:26px;padding-left:5px;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
 .video-player-header{background:#1a1a2e;padding:10px 15px;display:flex;justify-content:space-between;align-items:center;}
 .data-saver-btn{margin-left:auto;margin-right:8px;height:28px;padding:0 10px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;
     background:transparent;color:var(--text-muted);border:1px solid var(--border-color);}
@@ -373,6 +376,46 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
 .modal-card{background:var(--bg-card);padding:25px;border-radius:var(--radius);width:100%;max-width:450px;position:relative;border:1px solid var(--border-color);max-height:90vh;overflow-y:auto;}
 .btn-close-modal{position:absolute;top:15px;right:15px;background:transparent;border:none;font-size:24px;color:var(--text-muted);cursor:pointer;}
 .btn-close-modal:hover{color:#fff;}
+
+/* НЭВТРЭХ / БҮРТГҮҮЛЭХ */
+.auth-card{max-width:400px;padding:28px 24px 24px;border-radius:22px;}
+.auth-logo{text-align:center;font-size:24px;font-weight:800;letter-spacing:0.5px;margin-bottom:18px;}
+.auth-logo span{color:var(--primary);}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;margin-bottom:20px;border-radius:12px;background:var(--bg-dark);border:1px solid var(--border-color);}
+.auth-tabs button{height:38px;border:none;border-radius:9px;background:transparent;color:var(--text-muted);font-size:14px;font-weight:700;cursor:pointer;}
+.auth-tabs button.active{background:var(--bg-card);color:var(--text-main);box-shadow:0 2px 10px rgba(0,0,0,0.3);}
+.auth-sub{font-size:13px;color:var(--text-muted);text-align:center;margin:-4px 0 16px;line-height:1.5;}
+.auth-field{position:relative;display:flex;align-items:center;margin-bottom:12px;}
+.auth-field > i:first-child{position:absolute;left:14px;color:var(--text-dim);font-size:14px;pointer-events:none;}
+.auth-field input{width:100%;height:48px;padding:0 42px 0 40px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-dark);color:var(--text-main);font-size:14.5px;outline:none;transition:border-color 0.2s;}
+.auth-field input:focus{border-color:var(--primary);}
+.auth-field input:focus ~ i,.auth-field:focus-within > i:first-child{color:var(--primary);}
+.auth-field.invalid input{border-color:#ef4444;}
+.auth-eye{position:absolute;right:14px;color:var(--text-dim);cursor:pointer;font-size:14px;}
+.auth-eye:hover{color:var(--text-main);}
+.auth-hint{font-size:11.5px;color:var(--text-dim);margin:-6px 0 12px 4px;}
+.auth-strength{display:flex;align-items:center;gap:10px;margin:-4px 0 12px 4px;font-size:11.5px;font-weight:600;color:var(--text-muted);}
+.auth-strength-bar{flex:1;height:4px;border-radius:2px;background:var(--border-color);overflow:hidden;}
+.auth-strength-bar span{display:block;height:100%;width:10%;background:#ef4444;transition:width 0.25s,background 0.25s;}
+.auth-strength[data-level="1"] .auth-strength-bar span{width:35%;background:#f97316;}
+.auth-strength[data-level="2"] .auth-strength-bar span{width:65%;background:var(--primary);}
+.auth-strength[data-level="3"] .auth-strength-bar span{width:100%;background:var(--success);}
+.auth-error{font-size:13px;color:#fca5a5;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:10px 12px;border-radius:10px;margin-bottom:12px;}
+.auth-error i{margin-right:4px;}
+.auth-forgot{display:block;text-align:right;font-size:12.5px;color:var(--text-muted);text-decoration:none;margin:-2px 0 16px;}
+.auth-forgot:hover{color:var(--primary);}
+.auth-submit{width:100%;height:48px;border:none;border-radius:12px;background:var(--primary);color:var(--on-primary);font-size:15px;font-weight:800;cursor:pointer;margin-top:4px;}
+.auth-submit:hover{background:var(--primary-hover);}
+
+/* Нуусан кино */
+.am-hide-toggle{display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:12px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;
+    background:var(--bg-dark);border:1px solid var(--border-color);color:var(--text-main);}
+.am-hide-toggle input{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;}
+.am-hide-toggle i{color:var(--text-muted);margin-right:4px;}
+.am-row.is-hidden .am-thumb{opacity:0.45;}
+.am-hidden-tag{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:5px;margin-right:6px;vertical-align:middle;background:#2a3045;color:var(--text-main);}
+.am-btn-show{border-color:var(--success);color:var(--success);}
+.mp-hidden-note{display:inline-block;margin-bottom:10px;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:700;background:rgba(3,7,27,0.75);border:1px solid rgba(255,255,255,0.15);color:var(--text-main);}
 
 /* ТӨЛБӨР МОДАЛ */
 .payment-modal-box{max-width:400px;padding:24px 22px 22px;border-radius:20px;}

@@ -241,7 +241,7 @@ function renderCarousel() {
     let heroBanners = banners.filter(b => b.kind === 'hero').slice(0, 6);
     heroSlides = heroBanners.length > 0
         ? heroBanners.map(b => ({ image: b.image, movieId: b.movie_id, link: b.link, movie: movies.find(m => m.id === b.movie_id) }))
-        : movies.filter(m => m.cover && (m.isTrending || m.isNew)).slice(0, 6).map(m => ({ image: m.cover, movieId: m.id, movie: m }));
+        : visibleMovies().filter(m => m.cover && (m.isTrending || m.isNew)).slice(0, 6).map(m => ({ image: m.cover, movieId: m.id, movie: m }));
 
     if (heroSlides.length === 0) { hero.classList.add('hidden'); return; }
     hero.classList.remove('hidden');
@@ -467,7 +467,7 @@ const renderHomeMovies = debounce(function _renderHomeMovies() {
     let progress = readProgress();
     let continueList = Object.entries(progress)
         .sort((a, b) => (b[1].at || 0) - (a[1].at || 0))
-        .map(([id, p]) => ({ m: movies.find(mv => mv.id === Number(id)), p }))
+        .map(([id, p]) => ({ m: visibleMovies().find(mv => mv.id === Number(id)), p }))
         .filter(x => x.m)
         .slice(0, 12);
     if (continueList.length) {
@@ -476,19 +476,19 @@ const renderHomeMovies = debounce(function _renderHomeMovies() {
     }
 
     // 3. Шинэ
-    let newest = [...movies].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 15);
+    let newest = visibleMovies().sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 15);
     if (newest.length) html += homeSection('Шинэ', newest.map(m => homeCard(m)).join(''), "openCategory('all')");
 
     // 4. Зар
     html += adBannerHtml();
 
     // 5. Trending — үзэлтээрээ эхний 10
-    let trending = [...movies].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+    let trending = visibleMovies().sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
     if (trending.length) html += homeSection('Trending', trending.map((m, i) => trendCard(m, i + 1)).join(''));
 
     // 6-8. Төрлүүд
     [['ai', 'AI'], ['modern', 'Орчин үеийн'], ['historical', 'Түүхэн']].forEach(([cat, title]) => {
-        let list = movies.filter(m => m.category === cat).sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 15);
+        let list = visibleMovies().filter(m => m.category === cat).sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 15);
         if (list.length) html += homeSection(title, list.map(m => homeCard(m)).join(''), `openCategory('${cat}')`);
     });
 
@@ -516,7 +516,7 @@ const searchMoviesHome = debounce(async function () {
 
     // Server-side хайлт — ачааллагдаагүй кинонуудаас ч хайна
     // episodes (видео линк) татахгүй — зөвхөн жагсаалтын баганууд
-    const { data, error } = await supabaseClient
+    let { data, error } = await supabaseClient
         .from('movies')
         .select(MOVIE_LIST_COLUMNS)
         .ilike('title', `%${val}%`)
@@ -529,6 +529,7 @@ const searchMoviesHome = debounce(async function () {
 
     sections.forEach(el => el && el.classList.add('hidden'));
     results.classList.remove('hidden');
+    data = (data || []).filter(m => !m.hidden);
     document.getElementById('homeSearchTitle').innerText = `"${val}" — ${(data || []).length} үр дүн`;
     document.getElementById('homeSearchGrid').innerHTML = (data || []).length
         ? data.map(createMovieCard).join('')
@@ -539,7 +540,7 @@ const searchMoviesHome = debounce(async function () {
 function renderRecommendedMovies(currentId) {
     let container = document.getElementById('recommendedMoviesList');
     if (!container) return;
-    let recs = movies.filter(m => m.id !== currentId).slice(0, 12);
+    let recs = visibleMovies().filter(m => m.id !== currentId).slice(0, 12);
     if (recs.length === 0) {
         container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">Санал болгох кино байхгүй.</p>';
         return;
@@ -900,6 +901,40 @@ function switchForm(formId) {
     });
     let target = document.getElementById(formId);
     if (target) target.classList.remove('hidden');
+    document.getElementById('authTabLogin')?.classList.toggle('active', formId === 'loginForm');
+    document.getElementById('authTabRegister')?.classList.toggle('active', formId === 'registerForm');
+    clearAuthErrors();
+}
+
+// ===== НЭВТРЭХ / БҮРТГҮҮЛЭХ — алдааг талбарын доор харуулна =====
+function showAuthError(boxId, message, fieldIds = []) {
+    let box = document.getElementById(boxId);
+    if (box) { box.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${escapeHtml(message)}`; box.classList.remove('hidden'); }
+    fieldIds.forEach(id => document.getElementById(id)?.closest('.auth-field')?.classList.add('invalid'));
+    if (fieldIds[0]) document.getElementById(fieldIds[0])?.focus();
+}
+
+function clearAuthErrors() {
+    ['loginError', 'regError'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    document.querySelectorAll('.auth-field.invalid').forEach(el => el.classList.remove('invalid'));
+}
+
+// Нууц үгийн хүч: урт, үсэг + тоо, том/жижиг үсэг, тусгай тэмдэгт
+function updatePassStrength() {
+    let pass = document.getElementById('regPass').value;
+    let box  = document.getElementById('regPassStrength');
+    if (!box) return;
+    box.classList.toggle('hidden', !pass);
+    let score = 0;
+    if (pass.length >= 6) score++;
+    if (pass.length >= 10) score++;
+    if (/[a-zA-Zа-яА-ЯөүӨҮёЁ]/.test(pass) && /\d/.test(pass)) score++;
+    if (/[A-ZА-ЯӨҮЁ]/.test(pass) && /[a-zа-яөүё]/.test(pass)) score++;
+    if (/[^\w\sа-яА-ЯөүӨҮёЁ]/.test(pass)) score++;
+    let level = pass.length < 6 ? 0 : score <= 2 ? 1 : score <= 3 ? 2 : 3;
+    let labels = ['Хэт богино', 'Сул', 'Дунд', 'Хүчтэй'];
+    box.dataset.level = level;
+    box.querySelector('.auth-strength-text').innerText = labels[level];
 }
 
 // ===== CUSTOM CONFIRM =====
@@ -926,11 +961,19 @@ function closeConfirmModal() {
 async function loginLogic() {
     let email = document.getElementById('loginEmail').value.trim();
     let pass = document.getElementById('loginPass').value;
-    if (!email || !pass) return showToast('Имэйл болон нууц үгээ оруулна уу!', 'error');
+    clearAuthErrors();
+    if (!email || !pass) {
+        return showAuthError('loginError', 'Имэйл болон нууц үгээ оруулна уу.', [!email ? 'loginEmail' : 'loginPass']);
+    }
 
     showLoading('Нэвтэрч байна...');
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
-    if (error) { hideLoading(); return showToast('Имэйл эсвэл нууц үг буруу байна!', 'error'); }
+    if (error) {
+        hideLoading();
+        return showAuthError('loginError', /confirm/i.test(error.message)
+            ? 'Имэйлээ баталгаажуулаагүй байна. Имэйлээ шалгана уу.'
+            : 'Имэйл эсвэл нууц үг буруу байна.', ['loginEmail', 'loginPass']);
+    }
 
     const { data: profile, error: profileErr } = await supabaseClient
         .from('profile').select('*').eq('id', data.user.id).single();
@@ -955,11 +998,14 @@ async function registerLogic() {
     let phone = document.getElementById('regPhone').value.trim();
     let email = document.getElementById('regEmail').value.trim();
     let pass  = document.getElementById('regPass').value;
+    let pass2 = document.getElementById('regPass2').value;
 
-    if (!name || !phone || !email || !pass)
-        return showToast('Бүх талбарыг бөглөнө үү!', 'error');
-    if (pass.length < 6)
-        return showToast('Нууц үг дор хаяж 6 тэмдэгт байх ёстой!', 'error');
+    clearAuthErrors();
+    if (name.length < 2)                          return showAuthError('regError', 'Нэрээ оруулна уу.', ['regName']);
+    if (!/^\d{8}$/.test(phone))                    return showAuthError('regError', 'Утасны дугаар 8 оронтой байх ёстой.', ['regPhone']);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return showAuthError('regError', 'Имэйл хаяг буруу байна.', ['regEmail']);
+    if (pass.length < 6)                          return showAuthError('regError', 'Нууц үг дор хаяж 6 тэмдэгт байх ёстой.', ['regPass']);
+    if (pass !== pass2)                           return showAuthError('regError', 'Нууц үг таарахгүй байна.', ['regPass2']);
 
     showLoading('Бүртгэж байна...');
 
@@ -972,14 +1018,14 @@ async function registerLogic() {
         hideLoading();
         // Зөвхөн "бүртгэлтэй" алдаанд тэгж хэлнэ — rate limit, сул нууц үг зэрэгт жинхэнэ шалтгааныг харуулна
         const alreadyExists = /already|registered|exists/i.test(error.message);
-        return showToast(alreadyExists
-            ? 'Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!'
-            : 'Бүртгэл амжилтгүй: ' + error.message, 'error');
+        return showAuthError('regError', alreadyExists
+            ? 'Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтрэх хэсгээр орно уу.'
+            : 'Бүртгэл амжилтгүй: ' + error.message, alreadyExists ? ['regEmail'] : []);
     }
     // Бүртгэлтэй имэйлд Supabase identities хоосон user буцаадаг
     if (!data?.user || data.user.identities?.length === 0) {
         hideLoading();
-        return showToast('Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтэрнэ үү!', 'error');
+        return showAuthError('regError', 'Энэ имэйл аль хэдийн бүртгэлтэй байна. Нэвтрэх хэсгээр орно уу.', ['regEmail']);
     }
     // Имэйл баталгаажуулалт асаалттай бол session байхгүй — profile-д бичих эрх ч байхгүй
     if (!data.session) {
@@ -1132,7 +1178,7 @@ function renderAllMoviesPage() {
     let grid = document.getElementById('grid-all-movies');
     if (!grid) return;
     renderCategoryFilters();
-    let filtered = movies.filter(m => movieMatchesCategory(m, currentActiveCategory));
+    let filtered = visibleMovies().filter(m => movieMatchesCategory(m, currentActiveCategory));
 
     // hasMoreMovies flag-аар Load More товч харуулах эсэхийг шийдэнэ
     let loadMoreBtn = hasMoreMovies
@@ -1159,7 +1205,12 @@ function filterCategory(cat, element) {
 const MOVIE_BASE_COLUMNS = 'id, title, desc, code, category, status, cover, price, views, isTrending, isNew';
 // episode_count багана supabase/security.sql-ээр нэмэгдэнэ. Байхгүй бол loadInitialDataFromSupabase
 // MOVIE_BASE_COLUMNS руу буцна.
-let MOVIE_LIST_COLUMNS = MOVIE_BASE_COLUMNS + ', episode_count, year, duration, rating, translator, genres';
+let MOVIE_LIST_COLUMNS = MOVIE_BASE_COLUMNS + ', episode_count, year, duration, rating, translator, genres, hidden';
+
+// Нуусан кино хэрэглэгчдэд харагдахгүй (админ/модераторт RLS-ээр ирдэг ч нүүр, жагсаалтад гаргахгүй)
+function visibleMovies() {
+    return movies.filter(m => !m.hidden);
+}
 
 function episodeCount(m) {
     return m.episode_count ?? (m.episodes ? m.episodes.length : 0);
@@ -1229,6 +1280,7 @@ async function showMovieProfile(id, opts = {}) {
     updateLocalState();
 
     document.getElementById('mProfTitle').innerText = m.title;
+    document.getElementById('mProfHiddenNote').classList.toggle('hidden', !m.hidden);
     document.getElementById('mProfDesc').innerText  = m.desc || '';
     renderMovieInfo(m);
     updateSaveButton();
@@ -1506,6 +1558,40 @@ function toggleDataSaver() {
     showToast(next ? 'Дата хэмнэх асаалттай — 480p хүртэл' : 'Дата хэмнэх унтраалттай — 720p хүртэл');
 }
 
+// Утасны хөтөч (ялангуяа iPhone) хэрэглэгч дараагүй бол дуутай видеог автоматаар тоглуулахгүй.
+// Токен авах хооронд "дарсан" гэсэн дохио алга болдог тул хориглогдвол том "▶" товч гаргана.
+function tryPlay(video) {
+    let overlay = document.getElementById('videoTapToPlay');
+    let p = video.play();
+    if (!p || !p.then) return;
+    p.then(() => overlay?.classList.add('hidden')).catch(err => {
+        if (err?.name === 'NotAllowedError') overlay?.classList.remove('hidden');
+        else if (err?.name !== 'AbortError') console.warn('Тоглуулах алдаа:', err);
+    });
+}
+
+function tapToPlay() {
+    let video = document.getElementById('myVideo');
+    document.getElementById('videoTapToPlay').classList.add('hidden');
+    video.play().catch(err => console.warn('Тоглуулах алдаа:', err));
+}
+
+// Видео ачааллаж чадахгүй бол шалтгааныг хэлнэ (утсан дээр алдааг олоход тусална)
+(function setupVideoErrors() {
+    let video = document.getElementById('myVideo');
+    if (!video) return;
+    video.addEventListener('playing', () => document.getElementById('videoTapToPlay')?.classList.add('hidden'));
+    video.addEventListener('error', () => {
+        let code = video.error?.code;
+        if (!code || !video.getAttribute('src')) return; // хаах үед src='' болгоход гарах алдааг тоохгүй
+        let msg = code === 4 ? 'Энэ төхөөрөмж/хөтөч видеоны форматыг дэмжихгүй байна'
+                : code === 2 ? 'Сүлжээний алдаа — интернэтээ шалгана уу'
+                : code === 3 ? 'Видеог задлахад алдаа гарлаа'
+                : 'Видео ачааллахад алдаа гарлаа';
+        showToast(`${msg} (код ${code})`, 'error');
+    });
+})();
+
 async function playEpisode(num, file, title) {
     let videoPlayerBox = document.getElementById('videoPlayerBox');
     let myVideo        = document.getElementById('myVideo');
@@ -1550,7 +1636,7 @@ async function playEpisode(num, file, title) {
                 hlsInstance.attachMedia(myVideo);
                 hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
                     applyDataSaver();
-                    myVideo.play().catch(e => console.log('Autoplay:', e));
+                    tryPlay(myVideo);
                 });
                 hlsInstance.on(Hls.Events.ERROR, (event, data) => {
                     if (data.fatal) {
@@ -1562,7 +1648,7 @@ async function playEpisode(num, file, title) {
                 // Safari — native HLS дэмждэг
                 myVideo.src = file;
                 myVideo.load();
-                myVideo.play().catch(e => console.log('Safari autoplay:', e));
+                tryPlay(myVideo);
             } else {
                 showToast('Таны броузер энэ форматыг дэмжихгүй байна.', 'error');
                 return;
@@ -1571,7 +1657,7 @@ async function playEpisode(num, file, title) {
             // ── MP4 файл (хуучин, ажиллаж л байна) ───────────────
             myVideo.src = file;
             myVideo.load();
-            myVideo.play().catch(e => console.log('Автоматаар тоглуулж чадсангүй:', e));
+            tryPlay(myVideo);
         }
 
         if (nowPlaying) {
@@ -1602,6 +1688,7 @@ function closeVideoPlayer() {
     }
 
     if (videoPlayerBox) videoPlayerBox.classList.add('hidden');
+    document.getElementById('videoTapToPlay')?.classList.add('hidden');
     if (myVideo) { myVideo.pause(); myVideo.src = ''; }
     document.querySelectorAll('.ep-btn').forEach(btn => btn.classList.remove('active-ep'));
 }
@@ -1766,13 +1853,13 @@ async function confirmPaymentSubmit() {
 // Профайлын 3 жагсаалт — мөр болон "Бүгдийг үзэх" хуудас хоёулаа эндээс авна
 const PROFILE_LISTS = {
     saved:   { title: 'Дуртай',       rowId: 'profileSavedGrid',
-               get: () => (currentUser.saved || []).map(sid => movies.find(m => m.id === sid)).filter(Boolean),
+               get: () => (currentUser.saved || []).map(sid => visibleMovies().find(m => m.id === sid)).filter(Boolean),
                empty: 'Дуртай кино байхгүй. Кино хуудасны <i class="far fa-heart"></i> товчийг дарж нэмнэ.' },
     rented:  { title: 'Түрээсэлсэн',  rowId: 'profileRentedGrid',
-               get: () => movies.filter(m => (currentUser.rentedMovies || []).includes(m.code)),
+               get: () => visibleMovies().filter(m => (currentUser.rentedMovies || []).includes(m.code)),
                empty: 'Түрээсэлсэн кино байхгүй.' },
     history: { title: 'Сүүлд үзсэн',  rowId: 'profileHistoryGrid',
-               get: () => (currentUser.history || []).map(hid => movies.find(m => m.id === hid)).filter(Boolean),
+               get: () => (currentUser.history || []).map(hid => visibleMovies().find(m => m.id === hid)).filter(Boolean),
                empty: 'Үзсэн түүх байхгүй.' },
 };
 
@@ -2448,6 +2535,7 @@ const MOVIE_DETAIL_FIELDS = [
     { column: 'rating',     input: 'admRating',     type: 'float' },
     { column: 'translator', input: 'admTranslator', type: 'text' },
     { column: 'genres',     input: 'admGenres',     type: 'text' },
+    { column: 'hidden',     input: 'admHidden',     type: 'bool' },
 ];
 
 // Хоосон талбар → null. Баганууд DB-д хараахан байхгүй (SQL ажиллуулаагүй) бол юу ч буцаахгүй,
@@ -2456,6 +2544,7 @@ function readMovieDetailsForm() {
     if (MOVIE_LIST_COLUMNS === MOVIE_BASE_COLUMNS) return {};
     let details = {};
     MOVIE_DETAIL_FIELDS.forEach(f => {
+        if (f.type === 'bool') { details[f.column] = !!document.getElementById(f.input)?.checked; return; }
         let raw = (document.getElementById(f.input)?.value || '').trim();
         if (!raw) { details[f.column] = null; return; }
         details[f.column] = f.type === 'int' ? parseInt(raw) : f.type === 'float' ? parseFloat(raw) : raw;
@@ -2529,7 +2618,9 @@ async function adminSaveMovie() {
         newMovie.episode_count = video ? 1 : 0;
 
         movies.unshift(newMovie);
-        showToast(video ? 'Шинэ кино амжилттай нэмэгдлээ!' : 'Кино нэмэгдлээ — видеог дараа нь "Засах"-аар оруулна уу.');
+        showToast(newMovie.hidden
+            ? '🙈 Нуусан хэлбэрээр нэмэгдлээ — шалгаад "Кинонууд" хэсгээс харуулна уу.'
+            : video ? 'Шинэ кино амжилттай нэмэгдлээ!' : 'Кино нэмэгдлээ — видеог дараа нь "Засах"-аар оруулна уу.');
     }
 
     adminResetMovieForm();
@@ -2540,9 +2631,11 @@ async function adminSaveMovie() {
 // Маягтыг хоослоод "Кино нэмэх" горимд буцаана
 function adminResetMovieForm() {
     adminEditingMovieId = null;
-    ['admTitle', 'admDesc', 'admManualCode', 'admCoverUrl', 'admVideoUrl', ...MOVIE_DETAIL_FIELDS.map(f => f.input)].forEach(id => {
+    ['admTitle', 'admDesc', 'admManualCode', 'admCoverUrl', 'admVideoUrl', ...MOVIE_DETAIL_FIELDS.filter(f => f.type !== 'bool').map(f => f.input)].forEach(id => {
         let el = document.getElementById(id); if (el) el.value = '';
     });
+    // Шинэ кино анхдагчаар нуусан — шалгаад "Харуулах" дарна
+    document.getElementById('admHidden').checked = true;
     document.getElementById('admPrice').value = '0';
     let previewBox = document.getElementById('coverPreviewBox');
     if (previewBox) previewBox.style.display = 'none';
@@ -2576,7 +2669,9 @@ async function adminPrepareEditMovie(id) {
     document.getElementById('admStatus').value      = m.status;
     MOVIE_DETAIL_FIELDS.forEach(f => {
         let el = document.getElementById(f.input);
-        if (el) el.value = m[f.column] ?? '';
+        if (!el) return;
+        if (f.type === 'bool') el.checked = !!m[f.column];
+        else el.value = m[f.column] ?? '';
     });
 
     if (m.cover) {
@@ -2640,10 +2735,10 @@ function renderAdminMovieList() {
         let bought = adminRentCounts[m.code] || 0;
         let hasVideo = episodeCount(m) > 0;
         return `
-            <div class="am-row ${adminEditingMovieId === m.id ? 'editing' : ''}">
+            <div class="am-row ${adminEditingMovieId === m.id ? 'editing' : ''} ${m.hidden ? 'is-hidden' : ''}">
                 <img class="am-thumb" src="${cover}" alt="" loading="lazy">
                 <div class="am-info">
-                    <div class="am-title">${escapeHtml(m.title)}</div>
+                    <div class="am-title">${m.hidden ? '<span class="am-hidden-tag"><i class="fas fa-eye-slash"></i> Нуусан</span>' : ''}${escapeHtml(m.title)}</div>
                     <div class="am-sub">${escapeHtml(m.code)} · ${escapeHtml(categoryLabel(m.category))} · ${m.price === 0 ? 'Үнэгүй' : m.price.toLocaleString() + ' ₮'}</div>
                     <div class="am-stats">
                         <span title="Үзэлт"><i class="far fa-eye"></i> ${(m.views || 0).toLocaleString()}</span>
@@ -2652,11 +2747,26 @@ function renderAdminMovieList() {
                     </div>
                 </div>
                 <div class="am-actions">
+                    <button class="am-btn ${m.hidden ? 'am-btn-show' : ''}" onclick="adminToggleHidden(${m.id})" title="${m.hidden ? 'Харуулах' : 'Нуух'}"><i class="fas ${m.hidden ? 'fa-eye' : 'fa-eye-slash'}"></i></button>
                     <button class="am-btn" onclick="adminPrepareEditMovie(${m.id})" title="Засах"><i class="fas fa-pen"></i></button>
                     <button class="am-btn am-btn-del" onclick="adminDeleteMovie(${m.id})" title="Устгах"><i class="fas fa-trash"></i></button>
                 </div>
             </div>`;
     }).join('');
+}
+
+// Нуух ↔ харуулах — шалгаж дууссан киног нэг товчоор нийтэлнэ
+async function adminToggleHidden(id) {
+    if (!await verifyIsAdmin()) return;
+    let m = movies.find(mv => mv.id === id);
+    if (!m) return;
+    let hidden = !m.hidden;
+    const { error } = await supabaseClient.from('movies').update({ hidden }).eq('id', id);
+    if (error) return showToast('Алдаа: ' + error.message, 'error');
+    m.hidden = hidden;
+    renderAdminMovieList();
+    renderHomeMovies();
+    showToast(hidden ? `🙈 "${m.title}" нуугдлаа` : `👁 "${m.title}" хэрэглэгчдэд харагдаж эхэллээ`);
 }
 
 async function adminDeleteMovie(id) {

@@ -212,7 +212,8 @@
                 <div class="mp-body">
                     <!-- Нэр, доор нь он | хугацаа | үнэлгээ | үзэлт | орчуулагч -->
                     <div class="mp-head">
-                        <h1 class="mp-title" id="mProfTitle">Киноны нэр</h1>
+                        <div class="mp-hidden-note hidden" id="mProfHiddenNote"><i class="fas fa-eye-slash"></i> Нуусан кино — хэрэглэгчдэд харагдахгүй</div>
+                    <h1 class="mp-title" id="mProfTitle">Киноны нэр</h1>
                         <div class="mp-info" id="mProfInfo"></div>
                     </div>
 
@@ -232,9 +233,14 @@
                                 <button class="data-saver-btn" id="dataSaverBtn" onclick="toggleDataSaver()"></button>
                                 <button onclick="closeVideoPlayer()" style="background:#ef4444;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-times"></i> Хаах</button>
                             </div>
-                            <video id="myVideo" controls style="width:100%;border-radius:0 0 12px 12px;background:#000;max-height:500px;">
-                                Таны броузер видеог дэмжихгүй байна.
-                            </video>
+                            <div class="video-stage">
+                                <!-- playsinline — iPhone дээр бүтэн дэлгэцэнд гацахгүй, хуудсан дотроо тоглоно -->
+                                <video id="myVideo" controls playsinline webkit-playsinline preload="metadata" style="width:100%;display:block;border-radius:0 0 12px 12px;background:#000;max-height:500px;">
+                                    Таны броузер видеог дэмжихгүй байна.
+                                </video>
+                                <!-- Утасны хөтөч автоматаар тоглуулахыг хориглосон үед -->
+                                <button class="video-tap-play hidden" id="videoTapToPlay" onclick="tapToPlay()" aria-label="Тоглуулах"><i class="fas fa-play"></i></button>
+                            </div>
                         </div>
                     </div>
 
@@ -419,6 +425,10 @@
                                     <span id="admVideoStatusText" style="font-size:11px;color:var(--text-muted);display:block;margin-top:5px;">Видео сонгоогүй байна.</span>
                                 </div>
                             </div>
+                            <label class="am-hide-toggle">
+                                <input type="checkbox" id="admHidden" checked>
+                                <span><i class="fas fa-eye-slash"></i> Нуух — шалгаж дуустал хэрэглэгчдэд харагдахгүй</span>
+                            </label>
                             <button class="btn-admin-submit" id="btnAdminMovieSubmit" onclick="adminSaveMovie()">Шууд нийтлэх</button>
                             <button class="am-cancel-btn hidden" id="btnAdminMovieCancel" onclick="adminCancelEdit()">Засахыг болих</button>
                         </div>
@@ -479,45 +489,58 @@
 
     <!-- Нэвтрэх / Бүртгүүлэх -->
     <div id="loginModal" class="modal-overlay">
-        <div class="modal-card">
+        <div class="modal-card auth-card">
             <button class="btn-close-modal" onclick="closeModal('loginModal')">×</button>
-            <div id="loginForm">
-                <h3 style="margin-bottom:20px;text-align:center;">Платформд нэвтрэх</h3>
-                <div class="form-group">
-                    <label>Имэйл хаяг</label>
-                    <input type="email" id="loginEmail" placeholder="Хэрэглэгчийн имэйл">
-                </div>
-                <div class="form-group">
-                    <label>Нууц үг</label>
-                    <div style="position:relative;width:100%;">
-                        <input type="password" id="loginPass" placeholder="******" style="width:100%;padding-right:40px;">
-                        <i class="fas fa-eye" id="loginPassIcon" onclick="togglePasswordVisibility('loginPass','loginPassIcon')" style="position:absolute;right:12px;top:12px;cursor:pointer;color:#4e566e;"></i>
-                    </div>
-                </div>
-                <button class="btn-main" style="width:100%;margin-top:10px;" onclick="loginLogic()">Нэвтрэх</button>
-                <p style="text-align:right;margin-top:10px;">
-                    <a href="#" onclick="openForgotModal()" style="font-size:12px;color:#717d92;text-decoration:none;">Нууц үг мартсан уу?</a>
-                </p>
-                <p style="text-align:center;font-size:13px;margin-top:15px;color:var(--text-muted);">
-                    Бүртгэл байхгүй юу? <a href="#" style="color:var(--primary);" onclick="switchForm('registerForm')">Шинээр бүртгүүлэх</a>
-                </p>
+            <div class="auth-logo">Goy<span>Kino</span></div>
+            <div class="auth-tabs">
+                <button id="authTabLogin" class="active" onclick="switchForm('loginForm')">Нэвтрэх</button>
+                <button id="authTabRegister" onclick="switchForm('registerForm')">Бүртгүүлэх</button>
             </div>
-            <div id="registerForm" class="hidden">
-                <h3 style="margin-bottom:20px;text-align:center;">Шинэ бүртгэл үүсгэх</h3>
-                <div class="form-group"><label>Нэр</label><input type="text" id="regName" placeholder="Нэрээ оруулна уу"></div>
-                <div class="form-group"><label>Утасны дугаар</label><input type="text" id="regPhone" placeholder="Гүйлгээ шалгахад ашиглагдана"></div>
-                <div class="form-group"><label>Имэйл хаяг</label><input type="email" id="regEmail" placeholder="Имэйл хаягаа бичнэ үү"></div>
-                <div class="form-group">
-                    <label>Нууц үг</label>
-                    <div style="position:relative;width:100%;">
-                        <input type="password" id="regPass" placeholder="••••••••" style="width:100%;padding-right:40px;">
-                        <i class="fas fa-eye" id="regPassIcon" onclick="togglePasswordVisibility('regPass','regPassIcon')" style="position:absolute;right:12px;top:12px;cursor:pointer;color:#4e566e;"></i>
-                    </div>
+
+            <!-- Нэвтрэх -->
+            <div id="loginForm">
+                <div class="auth-field">
+                    <i class="far fa-envelope"></i>
+                    <input type="email" id="loginEmail" placeholder="Имэйл хаяг" autocomplete="email">
                 </div>
-                <button class="btn-main" style="width:100%;margin-top:10px;" onclick="registerLogic()">Бүртгүүлэх</button>
-                <p style="text-align:center;font-size:13px;margin-top:15px;color:var(--text-muted);">
-                    Аль хэдийн бүртгэлтэй юу? <a href="#" style="color:var(--primary);" onclick="switchForm('loginForm')">Нэвтрэх хэсэг рүү очих</a>
-                </p>
+                <div class="auth-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="loginPass" placeholder="Нууц үг" autocomplete="current-password" onkeydown="if (event.key === 'Enter') loginLogic()">
+                    <i class="fas fa-eye auth-eye" id="loginPassIcon" onclick="togglePasswordVisibility('loginPass','loginPassIcon')"></i>
+                </div>
+                <div class="auth-error hidden" id="loginError"></div>
+                <a class="auth-forgot" href="#" onclick="openForgotModal(); return false;">Нууц үг мартсан уу?</a>
+                <button class="auth-submit" onclick="loginLogic()">Нэвтрэх</button>
+            </div>
+
+            <!-- Бүртгүүлэх -->
+            <div id="registerForm" class="hidden">
+                <p class="auth-sub">Бүртгүүлээд дуртай кинонуудаа хадгалж, VIP эрх аваарай.</p>
+                <div class="auth-field">
+                    <i class="far fa-user"></i>
+                    <input type="text" id="regName" placeholder="Нэр" autocomplete="name" maxlength="40">
+                </div>
+                <div class="auth-field">
+                    <i class="fas fa-phone"></i>
+                    <input type="tel" id="regPhone" placeholder="Утасны дугаар" inputmode="numeric" maxlength="8" autocomplete="tel" oninput="this.value = this.value.replace(/\D/g, '')">
+                </div>
+                <div class="auth-hint">Төлбөрийн гүйлгээг шалгахад ашиглана.</div>
+                <div class="auth-field">
+                    <i class="far fa-envelope"></i>
+                    <input type="email" id="regEmail" placeholder="Имэйл хаяг" autocomplete="email">
+                </div>
+                <div class="auth-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="regPass" placeholder="Нууц үг (дор хаяж 6 тэмдэгт)" autocomplete="new-password" oninput="updatePassStrength()">
+                    <i class="fas fa-eye auth-eye" id="regPassIcon" onclick="togglePasswordVisibility('regPass','regPassIcon')"></i>
+                </div>
+                <div class="auth-strength hidden" id="regPassStrength"><span class="auth-strength-bar"><span></span></span><span class="auth-strength-text"></span></div>
+                <div class="auth-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="regPass2" placeholder="Нууц үгээ давтана уу" autocomplete="new-password" onkeydown="if (event.key === 'Enter') registerLogic()">
+                </div>
+                <div class="auth-error hidden" id="regError"></div>
+                <button class="auth-submit" onclick="registerLogic()">Бүртгүүлэх</button>
             </div>
         </div>
     </div>
