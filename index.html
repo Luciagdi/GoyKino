@@ -288,17 +288,48 @@
             <section id="adminPage" class="page-section hidden">
                 <h2 class="section-title"><i class="fas fa-user-shield"></i> Системийн удирдлагын хэсэг</h2>
                 <div class="admin-tabs-nav">
-                    <button id="btn-tab-movies" class="active" onclick="switchAdminTab('moviesTab')">Контент нэмэх</button>
-                    <button id="btn-tab-requests" onclick="switchAdminTab('requestsTab')">Мод өгөх Эрх нээх</button>
-                    <button id="btn-tab-users" onclick="switchAdminTab('usersTab')">Хэрэглэгчид ба Эрхүүд</button>
+                    <button id="btn-tab-overview" class="active" onclick="switchAdminTab('overviewTab')">Тойм</button>
+                    <button id="btn-tab-movies" onclick="switchAdminTab('moviesTab')">Кино</button>
+                    <button id="btn-tab-requests" onclick="switchAdminTab('requestsTab')">Хүсэлтүүд</button>
+                    <button id="btn-tab-users" onclick="switchAdminTab('usersTab')">Хэрэглэгчид</button>
                     <button id="btn-tab-banners" onclick="switchAdminTab('bannersTab')">Баннер</button>
                 </div>
 
-                <!-- Таб 1 -->
-                <div id="moviesTab" class="admin-tab-content">
+                <!-- Таб 0: Тойм -->
+                <div id="overviewTab" class="admin-tab-content">
+                    <div class="ov-grid">
+                        <div class="ov-card">
+                            <div class="ov-icon"><i class="fas fa-coins"></i></div>
+                            <div class="ov-label" id="ovRevenueLabel">Энэ сарын орлого</div>
+                            <div class="ov-value" id="ovRevenue">—</div>
+                            <div class="ov-sub" id="ovRevenueSub"></div>
+                        </div>
+                        <div class="ov-card">
+                            <div class="ov-icon"><i class="fas fa-users"></i></div>
+                            <div class="ov-label">Нийт хэрэглэгч</div>
+                            <div class="ov-value" id="ovUsers">—</div>
+                            <div class="ov-sub" id="ovUsersSub"></div>
+                        </div>
+                        <div class="ov-card">
+                            <div class="ov-icon"><i class="fas fa-film"></i></div>
+                            <div class="ov-label">Нийт кино</div>
+                            <div class="ov-value" id="ovMovies">—</div>
+                            <div class="ov-sub"></div>
+                        </div>
+                        <div class="ov-card">
+                            <div class="ov-icon"><i class="fas fa-plus-circle"></i></div>
+                            <div class="ov-label">Энэ сард нэмэгдсэн кино</div>
+                            <div class="ov-value" id="ovNewMovies">—</div>
+                            <div class="ov-sub"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Таб 1: Кино — нэмэх/засах + бүх киноны жагсаалт -->
+                <div id="moviesTab" class="admin-tab-content hidden">
                     <div class="admin-grid-layout">
                         <div class="admin-card-box">
-                            <h3 style="margin-bottom:15px;">Шинэ контент шууд нэмэх</h3>
+                            <h3 style="margin-bottom:15px;" id="admFormTitle">Кино нэмэх</h3>
                             <div class="form-group"><label>Нэр</label><input type="text" id="admTitle"></div>
                             <div class="form-group"><label>Тайлбар</label><textarea id="admDesc" rows="3"></textarea></div>
                             <div class="form-group-row">
@@ -340,24 +371,9 @@
                                     </div>
                                 </div>
                             </div>
-                            <button class="btn-admin-submit" id="btnAdminMovieSubmit" onclick="adminSaveMovie()">Шууд нийтлэх</button>
-                        </div>
-
-                        <div class="admin-card-box">
-                            <h3 style="margin-bottom:15px;">Анги нэмэх, шинэчлэх</h3>
-                            <div class="detail-item-box" style="margin-bottom:15px;background:var(--bg-dark);">
-                                <span id="admSelectedSeriesDisplay" style="color:var(--vip-color);font-weight:bold;">Кино сонгогдоогүй байна.</span>
-                            </div>
-                            <div class="form-group-row">
-                                <div class="form-group"><label>Ангийн дугаар</label><input type="number" id="admNewEpNumber" placeholder="Жишээ: 1"></div>
-                                <div class="form-group">
-                                    <label>Ангийн нэр (заавал биш)</label>
-                                    <input type="text" id="admNewEpTitle" placeholder="Жишээ: Эхлэл">
-                                </div>
-                            </div>
-                            <!-- Видео оруулах - gallery болон URL 2 аргаар -->
+                            <!-- Видео — кино бүр нэг ангитай -->
                             <div class="form-group">
-                                <label>Видео файл</label>
+                                <label>Видео</label>
                                 <div class="file-upload-area" id="admVideoUploadArea">
                                     <div class="file-upload-btns">
                                         <button type="button" class="btn-upload-file" onclick="document.getElementById('admVideoFileInput').click()">
@@ -370,24 +386,16 @@
                                     </div>
                                     <input type="file" id="admVideoFileInput" accept="video/*" onchange="handleVideoFileSelect(event)" style="display:none;">
                                     <input type="text" id="admVideoUrl" placeholder="https://... эсвэл видеоны линк" style="display:none;margin-top:8px;">
-                                    <span id="admVideoStatusText" style="font-size:11px;color:var(--text-muted);display:block;margin-top:5px;">Файл сонгоогүй байна.</span>
+                                    <span id="admVideoStatusText" style="font-size:11px;color:var(--text-muted);display:block;margin-top:5px;">Видео сонгоогүй байна.</span>
                                 </div>
                             </div>
-                            <div class="form-group">
-                                <label>Thumbnail зураг (заавал биш)</label>
-                                <div id="admThumbUploadArea">
-                                    <div class="file-upload-btns">
-                                        <button type="button" class="btn-upload-file" onclick="document.getElementById('admEpThumbInput').click()">
-                                            <i class="fas fa-image"></i> Thumbnail сонгох
-                                        </button>
-                                    </div>
-                                    <input type="file" id="admEpThumbInput" accept="image/*" onchange="handleEpThumbSelect(event)" style="display:none;">
-                                    <span id="admThumbStatusText" style="font-size:11px;color:var(--text-muted);display:block;margin-top:5px;">Thumbnail сонгоогүй.</span>
-                                </div>
-                            </div>
-                            <button id="admAddEpBtn" class="btn-main" style="width:100%;" onclick="adminAddEpisodeToMovie()">Анги нэмж хадгалах</button>
-                            <h4 style="margin-top:20px;margin-bottom:10px;font-size:14px;color:var(--text-muted);">Нийт киноны жагсаалт:</h4>
-                            <div class="admin-movies-vertical-list" id="adminMovieList"></div>
+                            <button class="btn-admin-submit" id="btnAdminMovieSubmit" onclick="adminSaveMovie()">Шууд нийтлэх</button>
+                            <button class="am-cancel-btn hidden" id="btnAdminMovieCancel" onclick="adminCancelEdit()">Засахыг болих</button>
+                        </div>
+
+                        <div class="admin-card-box">
+                            <h3 style="margin-bottom:12px;">Бүх кино <span class="banner-count" id="adminMovieCount">0</span></h3>
+                            <div class="am-list" id="adminMovieList"></div>
                         </div>
                     </div>
                 </div>
@@ -398,20 +406,14 @@
                     <div class="admin-requests-wrapper" id="adminRequestsList"></div>
                 </div>
 
-                <!-- Таб 3 -->
+                <!-- Таб 3: Хэрэглэгчид — хайгаад VIP хоног бэлэглэнэ -->
                 <div id="usersTab" class="admin-tab-content hidden">
-                    <h3 style="margin-bottom:15px;">Системийн нийт хэрэглэгчид</h3>
-                    <div class="table-responsive">
-                        <table class="users-data-table">
-                            <thead>
-                                <tr>
-                                    <th>Нэр</th><th>Имэйл</th><th>Утас</th>
-                                    <th>Үүрэг</th><th>VIP Эрх</th><th>Үйлдэл</th>
-                                </tr>
-                            </thead>
-                            <tbody id="adminUsersTableBody"></tbody>
-                        </table>
+                    <div class="au-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="adminUserSearch" placeholder="Нэр, имэйл, утсаар хайх..." oninput="searchAdminUsers()">
                     </div>
+                    <div class="au-list" id="adminUsersList"></div>
+                    <div id="usersPagination" class="au-pagination"></div>
                 </div>
 
                 <!-- Таб 4: Нүүр хуудасны баннерууд -->

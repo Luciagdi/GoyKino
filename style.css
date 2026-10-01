@@ -280,9 +280,57 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
 .form-group-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .btn-admin-submit{width:100%;padding:12px;background:var(--success);color:#03201a;border:none;border-radius:6px;cursor:pointer;font-weight:bold;}
 .btn-admin-submit:hover{background:#00a874;}
-.admin-movies-vertical-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;}
 .file-upload-area{background:var(--bg-dark);border:1px dashed var(--border-color);border-radius:8px;padding:12px;}
 .file-upload-btns{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+
+/* АДМИН — Тойм */
+.ov-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.ov-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:18px;}
+.ov-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(201,161,90,0.12);color:var(--primary);font-size:15px;margin-bottom:12px;}
+.ov-label{font-size:12px;font-weight:700;letter-spacing:0.5px;color:var(--text-muted);}
+.ov-value{font-size:26px;font-weight:800;margin-top:4px;letter-spacing:-0.5px;}
+.ov-sub{font-size:12px;color:var(--text-muted);margin-top:2px;min-height:15px;}
+
+/* АДМИН — Бүх киноны жагсаалт */
+.am-list{display:flex;flex-direction:column;max-height:760px;overflow-y:auto;}
+.am-row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.am-row.editing{background:rgba(201,161,90,0.08);border-radius:10px;}
+.am-thumb{width:46px;height:64px;flex-shrink:0;object-fit:cover;border-radius:7px;background:var(--bg-dark);}
+.am-info{flex:1;min-width:0;}
+.am-title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.am-sub{font-size:12px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.am-stats{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:5px;font-size:12px;font-weight:600;color:var(--text-main);}
+.am-stats i{color:var(--primary);margin-right:2px;}
+.am-stats .am-warn,.am-stats .am-warn i{color:#ffa400;}
+.am-actions{display:flex;gap:6px;flex-shrink:0;}
+.am-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-dark);color:var(--text-main);cursor:pointer;font-size:13px;}
+.am-btn:hover{border-color:var(--primary);color:var(--primary);}
+.am-btn-del:hover{border-color:#ef4444;color:#ef4444;}
+.am-cancel-btn{width:100%;margin-top:8px;padding:10px;border-radius:6px;border:1px solid var(--border-color);background:transparent;color:var(--text-muted);cursor:pointer;font-weight:600;}
+.am-cancel-btn:hover{color:var(--text-main);border-color:var(--text-muted);}
+
+/* АДМИН — Хэрэглэгчид */
+.au-search{position:relative;margin-bottom:14px;}
+.au-search i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;}
+.au-search input{width:100%;height:44px;padding:0 14px 0 40px;border-radius:12px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);font-size:14px;outline:none;}
+.au-search input:focus{border-color:var(--primary);}
+.au-list{display:flex;flex-direction:column;}
+.au-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,0.05);}
+.au-avatar{width:42px;height:42px;flex-shrink:0;border-radius:50%;object-fit:cover;background:var(--bg-card);}
+.au-info{flex:1;min-width:0;}
+.au-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.au-role{font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px;background:#2a3045;color:var(--text-main);margin-left:4px;vertical-align:middle;}
+.au-sub{font-size:12px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.au-vip{display:inline-block;margin-top:5px;font-size:11.5px;font-weight:700;color:var(--primary);}
+.au-vip.off{color:var(--text-dim);}
+.au-gift{display:flex;gap:6px;flex-shrink:0;}
+.au-gift input{width:72px;height:36px;padding:0 10px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-dark);color:var(--text-main);font-size:13px;outline:none;}
+.au-gift input:focus{border-color:var(--primary);}
+.au-gift button{height:36px;padding:0 12px;border:none;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.au-gift button:hover{background:var(--primary-hover);}
+.au-pagination{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px;font-size:13px;color:var(--text-muted);}
+.au-pagination button{width:36px;height:36px;border-radius:10px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);cursor:pointer;}
+.au-pagination button:disabled{opacity:0.35;cursor:default;}
 
 /* ХҮСЭЛТҮҮД */
 .admin-requests-wrapper{display:flex;flex-direction:column;gap:15px;}
@@ -356,6 +404,14 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
     .mp-big-btn{height:52px;font-size:16px;}
     .mp-btn-sub{display:none;}
     .rec-card{flex-basis:80px;}
+    .ov-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
+    .ov-card{padding:14px;}
+    .ov-value{font-size:21px;}
+    .au-row{flex-wrap:wrap;}
+    .au-gift{width:100%;padding-left:54px;}
+    .au-gift input{flex:1;}
+    .admin-tabs-nav{overflow-x:auto;scrollbar-width:none;}
+    .admin-tabs-nav button{white-space:nowrap;padding:12px 14px;}
     /* Бүх кино — 3 багана */
     .category-filter-container{margin:0 -15px 18px;padding:0 15px;}
     .movie-grid.movie-grid-3{grid-template-columns:repeat(3,1fr);gap:10px;}

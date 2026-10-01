@@ -12,10 +12,8 @@ let tempSelectedAvatarUrl = '';
 let currentActiveCategory = 'all';
 let tempSelectedVideoFile = '';   // R2 public URL болно
 let tempSelectedCoverFile = '';   // R2 public URL болно
-let tempSelectedEpThumb = '';     // R2 public URL болно
-let adminSelectedSeriesId = null;
 let adminEditingMovieId = null;
-let adminActiveTab = 'moviesTab';
+let adminActiveTab = 'overviewTab';
 let confirmCallback = null;
 
 // ===== UTILITY: DEBOUNCE =====
@@ -1135,12 +1133,6 @@ async function addEpisodeAtomic(movieId, episode) {
     return data || [];
 }
 
-async function removeEpisodeAtomic(movieId, epNum) {
-    const { data, error } = await supabaseClient.rpc('remove_movie_episode', { p_movie_id: movieId, p_num: epNum });
-    if (error) throw new Error(error.message);
-    return data || [];
-}
-
 // Ангиудыг server талд эрх шалгадаг get_movie_episodes RPC-ээр татна.
 // Эрхгүй хэрэглэгчид хоосон жагсаалт ирнэ (supabase/security.sql-ийг үзнэ үү).
 async function fetchEpisodes(movieId) {
@@ -2159,7 +2151,7 @@ async function handleVideoFileSelect(event) {
     const isStale = () => gen !== videoSelectionGen;
 
     const statusText = document.getElementById('admVideoStatusText');
-    const saveBtn    = document.getElementById('admAddEpBtn');
+    const saveBtn    = document.getElementById('btnAdminMovieSubmit');
     if (statusText) statusText.innerText = `⏳ Upload эхлэж байна: ${file.name}`;
     if (saveBtn)    { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
 
@@ -2285,32 +2277,6 @@ function toggleVideoUrlInput() {
     }
 }
 
-// ── Episode thumbnail ──────────────────────────────────────────
-async function handleEpThumbSelect(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const statusEl = document.getElementById('admThumbStatusText');
-    if (statusEl) statusEl.innerText = `⏳ Upload хийж байна...`;
-
-    showUploadBar('admThumbUploadArea', file.name, formatBytes(file.size));
-
-    try {
-        const url = await uploadSingle(file, 'thumbs', (pct) => {
-            updateUploadBar(pct, pct < 100 ? `${pct}%` : '✅ Дууслаа');
-        });
-        tempSelectedEpThumb = url;
-        if (statusEl) statusEl.innerText = `✅ Thumbnail: ${file.name}`;
-        hideUploadBar(1000);
-        showToast('Thumbnail upload хийгдлээ!');
-    } catch (err) {
-        hideUploadBar(0);
-        if (statusEl) statusEl.innerText = `❌ Алдаа: ${err.message}`;
-        showToast('Thumbnail upload алдаа: ' + err.message, 'error');
-        console.error(err);
-    }
-}
-
 // ── Cloudflare Stream-д видео upload хийх (TUS protocol) ─────────
 async function uploadVideoToStream(file, onProgress) {
     // 1. Worker-ээс TUS upload URL авна
@@ -2422,7 +2388,7 @@ function switchAdminTab(tabId) {
     document.querySelectorAll('.admin-tabs-nav button').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.add('hidden'));
 
-    let tabBtnMap = { moviesTab: 'btn-tab-movies', requestsTab: 'btn-tab-requests', usersTab: 'btn-tab-users', bannersTab: 'btn-tab-banners' };
+    let tabBtnMap = { overviewTab: 'btn-tab-overview', moviesTab: 'btn-tab-movies', requestsTab: 'btn-tab-requests', usersTab: 'btn-tab-users', bannersTab: 'btn-tab-banners' };
     let btn = document.getElementById(tabBtnMap[tabId]);
     if (btn) btn.classList.add('active');
     let tab = document.getElementById(tabId);
@@ -2431,7 +2397,8 @@ function switchAdminTab(tabId) {
 }
 
 function initAdminPanel() {
-    if (adminActiveTab === 'moviesTab')    renderAdminMovieList();
+    if (adminActiveTab === 'overviewTab')      renderAdminOverview();
+    else if (adminActiveTab === 'moviesTab')   renderAdminMovieList();
     else if (adminActiveTab === 'usersTab')    renderAdminUsersTable();
     else if (adminActiveTab === 'requestsTab') renderAdminRequests();
     else if (adminActiveTab === 'bannersTab')  renderAdminBanners();
@@ -2519,42 +2486,6 @@ async function adminDeleteBanner(id) {
     }, 'Баннер устгах', 'Тийм, устгах');
 }
 
-async function adminAddEpisodeToMovie() {
-    if (!await verifyIsAdmin()) return; // SERVER-SIDE ШАЛГАЛТ — өмнө дутуу байсан
-    if (!adminSelectedSeriesId) return showToast('Эхлээд жагсаалтаас кино сонгоно уу!', 'error');
-    let num    = parseInt(document.getElementById('admNewEpNumber').value);
-    let epTitle = document.getElementById('admNewEpTitle')?.value.trim() || `${num}-р анги`;
-
-    if (!num) return showToast('Ангийн дугаар заавал оруулна уу!', 'error');
-    if (!tempSelectedVideoFile) return showToast('Видео файл эсвэл URL оруулна уу!', 'error');
-
-    let m = movies.find(mv => mv.id === adminSelectedSeriesId);
-    if (!m) return;
-
-    // Server талд мөрийг түгжиж нэмнэ — давхардсан дугаар болон 2 админ зэрэг нэмэхийг шалгана
-    try {
-        m.episodes = await addEpisodeAtomic(m.id, { num, title: epTitle, file: tempSelectedVideoFile, thumb: tempSelectedEpThumb });
-        m.episode_count = m.episodes.length;
-    } catch (err) {
-        console.error('Анги нэмэх алдаа:', err);
-        return showToast('Анги нэмэхэд алдаа: ' + err.message, 'error');
-    }
-
-    document.getElementById('admNewEpNumber').value = '';
-    if (document.getElementById('admNewEpTitle')) document.getElementById('admNewEpTitle').value = '';
-    document.getElementById('admVideoFileInput').value = '';
-    document.getElementById('admVideoStatusText').innerText = 'Файл сонгоогүй байна.';
-    if (document.getElementById('admEpThumbInput')) document.getElementById('admEpThumbInput').value = '';
-    if (document.getElementById('admThumbStatusText')) document.getElementById('admThumbStatusText').innerText = 'Thumbnail сонгоогүй.';
-    tempSelectedVideoFile = '';
-    tempSelectedEpThumb   = '';
-    videoSelectionGen++;
-
-    renderAdminMovieList();
-    renderHomeMovies();
-    showToast(`${m.title} кинонд Анги ${num} нэмэгдлээ!`);
-}
-
 // Кино хуудсанд нэрийн доор харагдах нэмэлт мэдээлэл (supabase/security.sql-д нэмэгдсэн баганууд)
 const MOVIE_DETAIL_FIELDS = [
     { column: 'year',       input: 'admYear',       type: 'int' },
@@ -2578,6 +2509,11 @@ function readMovieDetailsForm() {
     return details;
 }
 
+// Кино бүр нэг ангитай — видеог episodes[0] болгон хадгална
+function singleEpisode(title, file) {
+    return [{ num: 1, title, file, thumb: '' }];
+}
+
 async function adminSaveMovie() {
     if (!await verifyIsAdmin()) return; // SERVER-SIDE ШАЛГАЛТ
     let title    = document.getElementById('admTitle').value.trim();
@@ -2587,6 +2523,7 @@ async function adminSaveMovie() {
     let category = document.getElementById('admCategory').value;
     let status   = document.getElementById('admStatus').value;
     let cover    = tempSelectedCoverFile || document.getElementById('admCoverUrl')?.value || '';
+    let video    = tempSelectedVideoFile;
     let details  = readMovieDetailsForm();
 
     if (!title || !code) return showToast('Нэр болон код заавал хэрэгтэй!', 'error');
@@ -2602,6 +2539,8 @@ async function adminSaveMovie() {
                 return showToast('Киноны кодыг өөрчлөх боломжгүй — түрээслэсэн хэрэглэгчид эрхээ алдана!', 'error');
             }
             let updates = { title, desc, price, category, status, cover: cover || m.cover, ...details };
+            // Шинэ видео сонгосон бол л солино — эс бөгөөс хуучин видео хэвээр
+            if (video) updates.episodes = singleEpisode(title, video);
 
             const { error } = await supabaseClient.from('movies')
                 .update(updates).eq('id', adminEditingMovieId);
@@ -2610,11 +2549,9 @@ async function adminSaveMovie() {
                 return showToast('Хадгалахад алдаа: ' + error.message, 'error');
             }
             Object.assign(m, updates);
+            if (video) m.episode_count = 1;
             showToast('Киноны мэдээлэл амжилттай шинэчлэгдлээ!');
         }
-        adminEditingMovieId = null;
-        let btn = document.getElementById('btnAdminMovieSubmit');
-        if (btn) { btn.innerText = 'Шууд нийтлэх'; btn.style.background = '#00c388'; }
     } else {
         const { data: dup } = await supabaseClient
             .from('movies').select('id').eq('code', code).limit(1);
@@ -2623,7 +2560,8 @@ async function adminSaveMovie() {
         let newMovie = {
             title, desc, price, code, category, status,
             cover: cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400',
-            views: 0, episodes: [], isTrending: false, isNew: true, ...details
+            views: 0, episodes: video ? singleEpisode(title, video) : [],
+            isTrending: false, isNew: true, ...details
         };
 
         const { data: inserted, error } = await supabaseClient
@@ -2633,31 +2571,49 @@ async function adminSaveMovie() {
             return showToast('Кино нэмэхэд алдаа: ' + (error?.message || 'тодорхойгүй'), 'error');
         }
         newMovie.id = inserted.id;
-        newMovie.episode_count = 0;
+        newMovie.episode_count = video ? 1 : 0;
 
-        movies.push(newMovie);
-        showToast('Шинэ кино амжилттай нэмэгдлээ!');
+        movies.unshift(newMovie);
+        showToast(video ? 'Шинэ кино амжилттай нэмэгдлээ!' : 'Кино нэмэгдлээ — видеог дараа нь "Засах"-аар оруулна уу.');
     }
 
-    ['admTitle', 'admDesc', 'admManualCode', ...MOVIE_DETAIL_FIELDS.map(f => f.input)].forEach(id => {
-        let el = document.getElementById(id); if (el) el.value = '';
-    });
-    document.getElementById('admPrice').value = '0';
-    if (document.getElementById('admCoverUrl')) document.getElementById('admCoverUrl').value = '';
-    let previewBox = document.getElementById('coverPreviewBox');
-    if (previewBox) previewBox.style.display = 'none';
-    tempSelectedCoverFile = '';
-
+    adminResetMovieForm();
     renderAdminMovieList();
     renderHomeMovies();
 }
 
-function adminPrepareEditMovie(id) {
+// Маягтыг хоослоод "Кино нэмэх" горимд буцаана
+function adminResetMovieForm() {
+    adminEditingMovieId = null;
+    ['admTitle', 'admDesc', 'admManualCode', 'admCoverUrl', 'admVideoUrl', ...MOVIE_DETAIL_FIELDS.map(f => f.input)].forEach(id => {
+        let el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.getElementById('admPrice').value = '0';
+    let previewBox = document.getElementById('coverPreviewBox');
+    if (previewBox) previewBox.style.display = 'none';
+    tempSelectedCoverFile = '';
+
+    tempSelectedVideoFile = '';
+    videoSelectionGen++; // явж буй upload/encode-ийг цуцална
+    document.getElementById('admVideoFileInput').value = '';
+    document.getElementById('admVideoStatusText').innerText = 'Видео сонгоогүй байна.';
+
+    document.getElementById('admFormTitle').innerText = 'Кино нэмэх';
+    document.getElementById('btnAdminMovieSubmit').innerText = 'Шууд нийтлэх';
+    document.getElementById('btnAdminMovieCancel').classList.add('hidden');
+}
+
+function adminCancelEdit() {
+    adminResetMovieForm();
+}
+
+async function adminPrepareEditMovie(id) {
     let m = movies.find(mv => mv.id === id);
     if (!m) return;
+    adminResetMovieForm();
     adminEditingMovieId = id;
     document.getElementById('admTitle').value       = m.title;
-    document.getElementById('admDesc').value        = m.desc;
+    document.getElementById('admDesc').value        = m.desc || '';
     document.getElementById('admPrice').value       = m.price;
     document.getElementById('admManualCode').value  = m.code;
     document.getElementById('admCategory').value    = m.category;
@@ -2675,64 +2631,72 @@ function adminPrepareEditMovie(id) {
         if (previewBox) previewBox.style.display = 'block';
     }
 
-    let btn = document.getElementById('btnAdminMovieSubmit');
-    if (btn) { btn.innerText = 'Өөрчлөлтийг хадгалах'; btn.style.background = '#c9a15a'; }
+    document.getElementById('admFormTitle').innerText = `Кино засах: ${m.title}`;
+    document.getElementById('btnAdminMovieSubmit').innerText = 'Өөрчлөлтийг хадгалах';
+    document.getElementById('btnAdminMovieCancel').classList.remove('hidden');
 
     switchAdminTab('moviesTab');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast(`Засах горим: ${m.title}`);
+
+    // Одоогийн видео байгаа эсэхийг харуулна (солих бол шинээр сонгоно)
+    let statusEl = document.getElementById('admVideoStatusText');
+    statusEl.innerText = 'Видео шалгаж байна...';
+    let episodes = await fetchEpisodes(id);
+    if (adminEditingMovieId !== id) return;
+    statusEl.innerText = episodes.length
+        ? '✅ Видео оруулсан байна. Солих бол шинээр сонгоно уу.'
+        : '⚠️ Видео байхгүй — видео оруулна уу.';
 }
 
-async function adminSelectMovieForEpisodes(id) {
-    let m = movies.find(mv => mv.id === id);
-    if (!m) return;
-    adminSelectedSeriesId = id;
-    m.episodes = await fetchEpisodes(id);
-    let display = document.getElementById('admSelectedSeriesDisplay');
-    if (display) display.innerHTML = `✅ Сонгогдсон: <strong>${escapeHtml(m.title)}</strong> (${escapeHtml(m.code)}) - ${m.episodes ? m.episodes.length : 0} анги`;
+// ===== АДМИН: БҮХ КИНОНЫ ЖАГСААЛТ (үзэлт, худалдан авалт) =====
+// Батлагдсан түрээсийн хүсэлтээс киноны кодоор тоолно — renderAdminOverview дүүргэнэ
+let adminRentCounts = {};
+let adminPaymentsLoaded = false;
+
+async function loadAdminPayments() {
+    const { data, error } = await supabaseClient
+        .from('requests')
+        .select('code, amount, paymentType, createdAt')
+        .eq('type', 'PAYMENT').eq('status', 'approved');
+    if (error) { console.warn('Төлбөр татах алдаа:', error.message); return []; }
+    adminRentCounts = {};
+    (data || []).forEach(p => {
+        if (p.paymentType === 'RENT') adminRentCounts[p.code] = (adminRentCounts[p.code] || 0) + 1;
+    });
+    adminPaymentsLoaded = true;
+    return data || [];
 }
 
 function renderAdminMovieList() {
     let container = document.getElementById('adminMovieList');
     if (!container) return;
+    document.getElementById('adminMovieCount').innerText = movies.length;
+    if (!adminPaymentsLoaded) loadAdminPayments().then(() => renderAdminMovieList());
     if (movies.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:10px;">Кино байхгүй байна.</p>';
+        container.innerHTML = '<p class="pf-empty">Кино байхгүй байна.</p>';
         return;
     }
     container.innerHTML = movies.map(m => {
-        let epList = (m.episodes && m.episodes.length > 0)
-            ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #1c2031;">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;">Ангиуд:</div>
-                <div style="display:flex;flex-wrap:wrap;gap:4px;">
-                    ${m.episodes.map(ep => `
-                        <div style="display:flex;align-items:center;gap:3px;background:#1c2031;padding:3px 6px;border-radius:4px;">
-                            <span style="font-size:11px;color:#e8d3a8;">${ep.num}-р анги</span>
-                            <button onclick="adminDeleteEpisode(${m.id},${ep.num})" title="Устгах"
-                                style="background:#ef4444;color:#fff;border:none;width:16px;height:16px;border-radius:3px;cursor:pointer;font-size:10px;line-height:1;padding:0;">×</button>
-                        </div>
-                    `).join('')}
-                </div>
-              </div>`
-            : '<div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Анги байхгүй</div>';
-
+        let cover = attrUrl(m.cover || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200');
+        let bought = adminRentCounts[m.code] || 0;
+        let hasVideo = episodeCount(m) > 0;
         return `
-        <div style="margin-bottom:8px;background:var(--bg-dark);padding:10px;border-radius:6px;border:1px solid var(--border-color);">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    ${m.cover ? `<img src="${attrUrl(m.cover)}" style="width:40px;height:55px;object-fit:cover;border-radius:4px;">` : '<div style="width:40px;height:55px;background:#1c2031;border-radius:4px;"></div>'}
-                    <div>
-                        <strong style="font-size:13px;">${escapeHtml(m.title)}</strong>
-                        <div style="font-size:11px;color:var(--text-muted);">${escapeHtml(m.code)} · ${episodeCount(m)} анги · ${m.price === 0 ? 'Үнэгүй' : m.price.toLocaleString() + ' ₮'}</div>
+            <div class="am-row ${adminEditingMovieId === m.id ? 'editing' : ''}">
+                <img class="am-thumb" src="${cover}" alt="" loading="lazy">
+                <div class="am-info">
+                    <div class="am-title">${escapeHtml(m.title)}</div>
+                    <div class="am-sub">${escapeHtml(m.code)} · ${escapeHtml(categoryLabel(m.category))} · ${m.price === 0 ? 'Үнэгүй' : m.price.toLocaleString() + ' ₮'}</div>
+                    <div class="am-stats">
+                        <span title="Үзэлт"><i class="far fa-eye"></i> ${(m.views || 0).toLocaleString()}</span>
+                        <span title="Түрээсэлж худалдаж авсан"><i class="fas fa-shopping-bag"></i> ${bought.toLocaleString()}</span>
+                        ${hasVideo ? '' : '<span class="am-warn" title="Видео оруулаагүй"><i class="fas fa-exclamation-triangle"></i> Видеогүй</span>'}
                     </div>
                 </div>
-                <div style="display:flex;gap:5px;flex-wrap:wrap;">
-                    <button onclick="adminSelectMovieForEpisodes(${m.id})" style="background:#1c2031;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Анги+</button>
-                    <button onclick="adminPrepareEditMovie(${m.id})" style="background:#d6a142;color:#000;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Засах</button>
-                    <button onclick="adminDeleteMovie(${m.id})" style="background:#ef4444;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Устгах</button>
+                <div class="am-actions">
+                    <button class="am-btn" onclick="adminPrepareEditMovie(${m.id})" title="Засах"><i class="fas fa-pen"></i></button>
+                    <button class="am-btn am-btn-del" onclick="adminDeleteMovie(${m.id})" title="Устгах"><i class="fas fa-trash"></i></button>
                 </div>
-            </div>
-            ${epList}
-        </div>`;
+            </div>`;
     }).join('');
 }
 
@@ -2741,7 +2705,7 @@ async function adminDeleteMovie(id) {
     let m = movies.find(mv => mv.id === id);
     if (!m) return;
     showConfirm(
-        `"${m.title}" киног устгахдаа итгэлтэй байна уу? Ангиуд ч хамт устагдана.`,
+        `"${m.title}" киног устгахдаа итгэлтэй байна уу?`,
         async () => {
             const { error } = await supabaseClient.from('movies').delete().eq('id', id);
             if (error) {
@@ -2749,11 +2713,7 @@ async function adminDeleteMovie(id) {
                 return showToast('Устгахад алдаа: ' + error.message, 'error');
             }
             movies = movies.filter(mv => mv.id !== id);
-            if (adminSelectedSeriesId === id) {
-                adminSelectedSeriesId = null;
-                let display = document.getElementById('admSelectedSeriesDisplay');
-                if (display) display.innerText = 'Кино сонгогдоогүй байна.';
-            }
+            if (adminEditingMovieId === id) adminResetMovieForm();
             renderAdminMovieList();
             renderHomeMovies();
             showToast('Кино устгагдлаа.');
@@ -2762,91 +2722,100 @@ async function adminDeleteMovie(id) {
     );
 }
 
-// ===== ХЭРЭГЛЭГЧДИЙН ХҮСНЭГТ =====
+// ===== АДМИН: ТОЙМ =====
+async function renderAdminOverview() {
+    let now = new Date();
+    let monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    document.getElementById('ovRevenueLabel').innerText = `${now.getMonth() + 1}-р сарын орлого`;
+
+    const [payments, usersRes, moviesRes, newMoviesRes] = await Promise.all([
+        loadAdminPayments(),
+        supabaseClient.from('profile').select('id', { count: 'exact', head: true }),
+        supabaseClient.from('movies').select('id', { count: 'exact', head: true }),
+        supabaseClient.from('movies').select('id', { count: 'exact', head: true }).gte('created_at', monthStart.toISOString()),
+    ]);
+
+    let monthPayments = payments.filter(p => p.createdAt && new Date(p.createdAt) >= monthStart);
+    let revenue = monthPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    document.getElementById('ovRevenue').innerText    = `₮${revenue.toLocaleString()}`;
+    document.getElementById('ovRevenueSub').innerText = `${monthPayments.length} батлагдсан төлбөр`;
+    document.getElementById('ovUsers').innerText      = usersRes.error ? '—' : (usersRes.count || 0).toLocaleString();
+    document.getElementById('ovMovies').innerText     = moviesRes.error ? '—' : (moviesRes.count || 0).toLocaleString();
+    // created_at багана байхгүй бол (security.sql ажиллуулаагүй) "—"
+    document.getElementById('ovNewMovies').innerText  = newMoviesRes.error ? '—' : (newMoviesRes.count || 0).toLocaleString();
+}
+
+// ===== АДМИН: ХЭРЭГЛЭГЧИД — хайгаад VIP хоног бэлэглэнэ =====
 const USERS_PER_PAGE = 20;
 let usersCurrentPage = 0;
 let usersTotalCount  = 0;
+let adminUserQuery   = '';
+
+const searchAdminUsers = debounce(function () {
+    adminUserQuery = document.getElementById('adminUserSearch').value.trim();
+    renderAdminUsersTable(0);
+}, 350);
 
 async function renderAdminUsersTable(page = 0) {
-    let tbody = document.getElementById('adminUsersTableBody');
-    if (!tbody) return;
+    let list = document.getElementById('adminUsersList');
+    if (!list) return;
 
     usersCurrentPage = page;
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;"><i class="fas fa-spinner fa-spin"></i> Ачааллаж байна...</td></tr>';
+    list.innerHTML = '<p class="pf-empty"><i class="fas fa-spinner fa-spin"></i> Ачааллаж байна...</p>';
 
     const from = page * USERS_PER_PAGE;
-    const to   = from + USERS_PER_PAGE - 1;
-
-    const { data: usersData, count, error } = await supabaseClient
+    let query = supabaseClient
         .from('profile')
         .select('*', { count: 'exact' })
         .order('id', { ascending: false })
-        .range(from, to);
+        .range(from, from + USERS_PER_PAGE - 1);
+    if (adminUserQuery) {
+        // PostgREST or() шүүлтүүрийг эвдэх тэмдэгтүүдийг хасна
+        let q = adminUserQuery.replace(/[,()*%\\]/g, ' ').trim();
+        if (q) query = query.or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
+    }
+    const { data: usersData, count, error } = await query;
 
     if (error) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#ef4444;padding:20px;">Татахад алдаа гарлаа.</td></tr>';
+        list.innerHTML = '<p class="pf-empty" style="color:#ef4444;">Татахад алдаа гарлаа.</p>';
         return;
     }
 
     users = usersData || [];
     usersTotalCount = count || 0;
 
-    tbody.innerHTML = users.map((u, idx) => {
-        // isVipActive ашиглан зөв шалгах
-        let vipText = isVipActive(u)
-            ? `<span style="color:#00c388;">Идэвхтэй (${new Date(u.vipExpires).toLocaleDateString('mn-MN')})</span>`
-            : '<span style="color:var(--text-muted);">Ердийн</span>';
+    list.innerHTML = users.length === 0
+        ? '<p class="pf-empty">Хэрэглэгч олдсонгүй.</p>'
+        : users.map((u, idx) => {
+            let vip = '<span class="au-vip off">VIP эрхгүй</span>';
+            if (isVipActive(u)) {
+                let daysLeft = Math.ceil((new Date(u.vipExpires) - Date.now()) / (1000 * 60 * 60 * 24));
+                vip = `<span class="au-vip">VIP · ${daysLeft > 9999 ? 'Хязгааргүй' : `${daysLeft} хоног`}</span>`;
+            }
+            let role = u.role === 'admin' ? '<span class="au-role">Админ</span>'
+                     : u.role === 'moderator' ? '<span class="au-role">Модератор</span>' : '';
+            return `
+                <div class="au-row">
+                    <img class="au-avatar" src="${attrUrl(u.avatar || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png')}" alt="">
+                    <div class="au-info">
+                        <div class="au-name">${escapeHtml(u.name || 'Нэргүй')} ${role}</div>
+                        <div class="au-sub">${escapeHtml(u.email || '')}${u.phone ? ' · ' + escapeHtml(u.phone) : ''}</div>
+                        ${vip}
+                    </div>
+                    <div class="au-gift">
+                        <input type="number" id="vipDays-${idx}" placeholder="Хоног" min="1">
+                        <button data-email="${escapeHtml(u.email)}" onclick="adminGiveVipDays(this.dataset.email,${idx})"><i class="fas fa-gift"></i> Бэлэглэх</button>
+                    </div>
+                </div>`;
+        }).join('');
 
-        // Имэйлийг onclick string-д шууд оруулахгүй — data-email-ээс уншина
-        // (JSON.stringify-ийн "..." нь onclick="..." attribute-ыг эвдэж байсан)
-        let emailAttr = escapeHtml(u.email);
-        let actionButtons = u.role !== 'admin' ? `
-            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-                ${u.role === 'moderator'
-                    ? `<button data-email="${emailAttr}" onclick="changeUserRole(this.dataset.email,'user')" style="background:#b8883a;color:#fff;padding:4px 8px;font-size:11px;border:none;border-radius:4px;cursor:pointer;">Mod цуцлах</button>`
-                    : `<button data-email="${emailAttr}" onclick="changeUserRole(this.dataset.email,'moderator')" style="background:#c9a15a;color:#140f04;padding:4px 8px;font-size:11px;border:none;border-radius:4px;cursor:pointer;">Mod болгох</button>`
-                }
-                <input type="number" id="vipDays-${idx}" placeholder="Хоног"
-                    style="width:60px;padding:4px;font-size:11px;background:#03071b;border:1px solid #1c2031;color:#fff;border-radius:4px;">
-                <button data-email="${emailAttr}" onclick="adminGiveVipDays(this.dataset.email,${idx})" style="background:#00c388;color:#fff;padding:4px 8px;font-size:11px;border:none;border-radius:4px;cursor:pointer;">VIP өгөх</button>
-                <button data-email="${emailAttr}" onclick="adminApprovePayment(this.dataset.email)" style="background:#1c2031;color:#fff;padding:4px 8px;font-size:11px;border:none;border-radius:4px;cursor:pointer;">Түрээс нээх</button>
-            </div>
-        ` : `<span style="color:var(--vip-color);font-weight:600;">Үндсэн Админ</span>`;
-
-        return `
-            <tr>
-                <td><img src="${attrUrl(u.avatar || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png')}"
-                    style="width:28px;height:28px;border-radius:50%;margin-right:8px;vertical-align:middle;">${escapeHtml(u.name)}</td>
-                <td>${escapeHtml(u.email)}</td>
-                <td>${escapeHtml(u.phone || '-')}</td>
-                <td><span class="badge" style="background:#2a3045;color:#fff;">${escapeHtml((u.role || 'user').toUpperCase())}</span></td>
-                <td>${vipText}</td>
-                <td>${actionButtons}</td>
-            </tr>`;
-    }).join('');
-
-    // Pagination товчнууд
+    // Хуудаслалт
     const totalPages = Math.ceil(usersTotalCount / USERS_PER_PAGE);
-    if (totalPages > 1) {
-        const paginationEl = document.getElementById('usersPagination') || (() => {
-            const el = document.createElement('div');
-            el.id = 'usersPagination';
-            el.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;margin-top:15px;';
-            tbody.closest('.table-responsive')?.after(el);
-            return el;
-        })();
-
-        paginationEl.innerHTML = `
-            <button onclick="renderAdminUsersTable(${page - 1})"
-                style="background:#1c2031;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;${page === 0 ? 'opacity:0.4;pointer-events:none;' : ''}"
-            ><i class="fas fa-chevron-left"></i></button>
-            <span style="font-size:13px;color:var(--text-muted);">
-                ${page + 1} / ${totalPages} <span style="font-size:11px;">(Нийт ${usersTotalCount} хэрэглэгч)</span>
-            </span>
-            <button onclick="renderAdminUsersTable(${page + 1})"
-                style="background:#1c2031;color:#fff;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-size:13px;${page + 1 >= totalPages ? 'opacity:0.4;pointer-events:none;' : ''}"
-            ><i class="fas fa-chevron-right"></i></button>`;
-    }
+    document.getElementById('usersPagination').innerHTML = totalPages > 1 ? `
+        <button onclick="renderAdminUsersTable(${page - 1})" ${page === 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
+        <span>${page + 1} / ${totalPages} · нийт ${usersTotalCount}</span>
+        <button onclick="renderAdminUsersTable(${page + 1})" ${page + 1 >= totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`
+        : (usersTotalCount ? `<span>Нийт ${usersTotalCount} хэрэглэгч</span>` : '');
 }
 
 async function adminGiveVipDays(userEmail, idx) {
@@ -2873,83 +2842,8 @@ async function adminGiveVipDays(userEmail, idx) {
 
     emailVipApproved(u, `${days} хоногийн VIP`, new Date(u.vipExpires).toLocaleDateString('mn-MN'));
 
-    renderAdminUsersTable();
-    dayInput.value = '';
-    showToast(`${u.name} хэрэглэгчид ${days} хоногийн VIP нэмлээ!`);
-}
-
-async function adminApprovePayment(userEmail) {
-    if (!await verifyIsAdmin()) return;
-
-    // 1️⃣ DB-аас шинэ pending хүсэлтүүдийг татна (local state-д найдахгүй)
-    const { data: freshReqs, error: fetchErr } = await supabaseClient
-        .from('requests')
-        .select('*')
-        .eq('userEmail', userEmail)
-        .eq('type', 'PAYMENT')
-        .eq('status', 'pending');
-
-    if (fetchErr || !freshReqs || freshReqs.length === 0)
-        return showToast('Энэ хэрэглэгчид хүлээгдэж байгаа төлбөрийн хүсэлт байхгүй байна.', 'error');
-
-    // 2️⃣ Хэрэглэгчийн шинэ өгөгдлийг DB-аас татна
-    const { data: freshUser, error: userErr } = await supabaseClient
-        .from('profile').select('*').eq('email', userEmail).single();
-    if (userErr || !freshUser) return showToast('Хэрэглэгч олдсонгүй!', 'error');
-
-    let approvedCount = 0;
-    for (const r of freshReqs) {
-        // 3️⃣ Тус бүрд lock хийнэ — 2 admin зэрэг дарвал зөвхөн нэг нь амжина
-        // 0 мөр шинэчлэгдэхэд Supabase error буцаадаггүй тул .select()-ээр шалгана
-        const { data: locked, error: lockErr } = await supabaseClient
-            .from('requests').update({ status: 'approved' })
-            .eq('id', r.id).eq('status', 'pending').select('id');
-        if (lockErr || !locked?.length) continue; // Аль хэдийн өөр admin батласан
-
-        const grantErr = await grantPaymentToUser(freshUser, r);
-        if (grantErr) {
-            console.error('adminApprovePayment алдаа:', grantErr);
-            await unlockRequest(r.id);
-            showToast('Эрх нээхэд алдаа: ' + grantErr.message, 'error');
-            continue;
-        }
-
-        // Local state шинэчилнэ
-        let localReq = requests.find(req => req.id === r.id);
-        if (localReq) localReq.status = 'approved';
-        approvedCount++;
-    }
-
-    // Local user шинэчилнэ
-    let localUser = users.find(us => us.id === freshUser.id);
-    if (localUser) {
-        localUser.vipExpires   = freshUser.vipExpires;
-        localUser.rentedMovies = freshUser.rentedMovies;
-    }
-
-    renderAdminUsersTable();
-    updateRequestBadge();
-    showToast(approvedCount > 0
-        ? `${freshUser.name} хэрэглэгчийн ${approvedCount} хүсэлт баталгаажлаа!`
-        : 'Хүсэлтүүд аль хэдийн баталгаажсан байна.');
-}
-
-async function changeUserRole(userEmail, newRole) {
-    if (!await verifyIsAdmin()) return; // SERVER-SIDE ШАЛГАЛТ
-    let u = users.find(us => us.email === userEmail);
-    if (!u) return;
-
-    const { error } = await supabaseClient
-        .from('profile').update({ role: newRole }).eq('email', userEmail);
-    if (error) {
-        console.error('Supabase role update алдаа:', error);
-        return showToast('Эрх өөрчлөхөд алдаа: ' + error.message, 'error');
-    }
-    u.role = newRole;
-
-    renderAdminUsersTable();
-    checkAuthUI();
-    showToast(`${u.name} → ${newRole === 'moderator' ? 'Модератор болголлоо ✅' : 'Энгийн хэрэглэгч болголлоо'}`);
+    renderAdminUsersTable(usersCurrentPage);
+    showToast(`${u.name} хэрэглэгчид ${days} хоног бэлэглэлээ!`);
 }
 
 // ===== ХҮСЭЛТҮҮД =====
@@ -3209,30 +3103,6 @@ async function approveEpisodeRequest(reqId) {
     renderHomeMovies();
     updateRequestBadge();
     showToast(`${m?.title || freshReq.movieTitle} кинонд Анги ${freshReq.epNum} нэмэгдлээ!`);
-}
-
-async function adminDeleteEpisode(movieId, epNum) {
-    // verifyIsAdmin() confirm dialog харуулахаас ӨМНӨ шалгана
-    if (!await verifyIsAdmin()) return;
-    showConfirm(
-        `Анги ${epNum}-г устгахдаа итгэлтэй байна уу?`,
-        async () => {
-            let episodes;
-            try {
-                episodes = await removeEpisodeAtomic(movieId, epNum);
-            } catch (err) {
-                console.error('Анги устгах алдаа:', err);
-                return showToast('Анги устгахад алдаа: ' + err.message, 'error');
-            }
-            let m = movies.find(mv => mv.id === movieId);
-            if (m) { m.episodes = episodes; m.episode_count = episodes.length; }
-
-            renderAdminMovieList();
-            renderHomeMovies();
-            showToast('Анги устгагдлаа.');
-        },
-        'Анги устгах', 'Тийм, устгах'
-    );
 }
 
 async function rejectRequest(reqId) {
