@@ -1,17 +1,26 @@
 name = "goykino-worker"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+account_id = "843bdc24d4300e34d0e7f759323d2098"
+
+# Dashboard-аас оруулсан хувьсагчид (SUPABASE_URL, SUPABASE_ANON_KEY, STREAM_API_TOKEN, CF_ACCOUNT_ID ...)
+# deploy хийхэд устахгүй
+keep_vars = true
 
 [vars]
-R2_BUCKET_NAME = "goykino-videos"
+R2_BUCKET_NAME = "goykinovideo"
 R2_PUBLIC_URL = "https://pub-1720b603752f485ea99fde602e67b2fc.r2.dev"
 
-# handleFileUpload дахь env.BUCKET
+# Cover, avatar, баннер — нийтэд нээлттэй bucket (handleFileUpload дахь env.BUCKET)
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "goykino-videos"
+bucket_name = "goykinovideo"
+
+# R2 HLS видео — нийтэд нээлттэй БИШ bucket (зөвхөн Worker токеноор дамжуулна)
+[[r2_buckets]]
+binding = "HLS_BUCKET"
+bucket_name = "goykino"
 
 # Нууц утгуудыг `wrangler secret put <NAME>`-аар тохируулна:
-#   SUPABASE_URL, SUPABASE_ANON_KEY,
-#   RESEND_API_KEY, STREAM_API_TOKEN, CF_ACCOUNT_ID
-# (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY хэрэггүй болсон — upload env.BUCKET-ээр явна)
+#   RESEND_API_KEY
+#   HLS_SIGNING_KEY  (дурын урт санамсаргүй тэмдэгт мөр — HLS токен гарын үсэг)

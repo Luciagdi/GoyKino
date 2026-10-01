@@ -1442,26 +1442,68 @@ let hlsInstance = null;
 // Анги солих/хаах бүрт нэмэгдэнэ — удаан ирсэн token хуучин ангийг тоглуулахгүй
 let playEpisodeGen = 0;
 
-// Cloudflare Stream видеонд Worker-ээс хугацаатай signed URL авна (requireSignedURLs).
-// Амжилтгүй бол анхны URL-ыг буцаана — signed шаарддаг видео тэгвэл зүгээр л тоглохгүй.
+// Тоглуулах линк:
+//   "hls:<хавтас>" (R2)  → Worker-ээс 6 цагийн токентой master.m3u8 линк. Амжилтгүй бол null.
+//   Cloudflare Stream     → signed URL (хуучин видеонууд). Амжилтгүй бол анхны URL.
+//   Бусад URL             → өөрчлөхгүй.
 async function getPlayableUrl(movieId, file) {
-    if (!/(?:cloudflarestream\.com|videodelivery\.net)\/[a-f0-9]{32}\//i.test(file)) return file;
+    let isHls    = typeof file === 'string' && file.startsWith('hls:');
+    let isStream = /(?:cloudflarestream\.com|videodelivery\.net)\/[a-f0-9]{32}\//i.test(file);
+    if (!isHls && !isStream) return file;
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         const headers = { 'Content-Type': 'application/json' };
         if (session) headers['Authorization'] = `Bearer ${session.access_token}`;
-        const res = await fetch(WORKER_URL + '/stream/token', {
+        const res = await fetch(WORKER_URL + (isHls ? '/hls/token' : '/stream/token'), {
             method: 'POST', headers, body: JSON.stringify({ movieId, file }),
         });
         if (res.ok) {
             const { url } = await res.json();
             if (url) return url;
         }
-        console.warn('Stream token авч чадсангүй:', res.status);
+        console.warn('Видео токен авч чадсангүй:', res.status);
     } catch (err) {
-        console.warn('Stream token алдаа:', err.message);
+        console.warn('Видео токен алдаа:', err.message);
     }
-    return file;
+    return isHls ? null : file; // R2 HLS токенгүйгээр тоглохгүй
+}
+
+// ===== ДАТА ХЭМНЭХ — HLS чанарыг 480p-ээр хязгаарлана (хэрэглэгчийн дата + дамжуулалт хэмнэнэ) =====
+let dataSaverChoice = null; // localStorage хаалттай үед ч энэ удаагийн сонголт хадгалагдана
+
+function dataSaverOn() {
+    if (dataSaverChoice !== null) return dataSaverChoice;
+    try {
+        let v = localStorage.getItem('goykino_datasaver');
+        if (v !== null) return v === '1';
+    } catch (_) { /* хадгалах боломжгүй — анхдагч утгаар */ }
+    // Анхдагч: утас эсвэл төхөөрөмж дээр "Data Saver" асаалттай бол
+    return window.matchMedia('(max-width: 768px)').matches || !!navigator.connection?.saveData;
+}
+
+function applyDataSaver() {
+    let on  = dataSaverOn();
+    let btn = document.getElementById('dataSaverBtn');
+    if (btn) {
+        btn.classList.toggle('on', on);
+        btn.innerHTML = `<i class="fas fa-leaf"></i> Дата хэмнэх: ${on ? 'Асаалттай' : 'Унтраалттай'}`;
+    }
+    if (!hlsInstance || !hlsInstance.levels?.length) return;
+    let cap = -1; // -1 = хязгааргүй
+    if (on) {
+        hlsInstance.levels.forEach((l, i) => {
+            if (l.height && l.height <= 480 && (cap === -1 || l.height > hlsInstance.levels[cap].height)) cap = i;
+        });
+    }
+    hlsInstance.autoLevelCapping = cap;
+}
+
+function toggleDataSaver() {
+    let next = !dataSaverOn();
+    dataSaverChoice = next;
+    try { localStorage.setItem('goykino_datasaver', next ? '1' : '0'); } catch (_) { /* зөвхөн энэ удаад */ }
+    applyDataSaver();
+    showToast(next ? 'Дата хэмнэх асаалттай — 480p хүртэл' : 'Дата хэмнэх унтраалттай — 720p хүртэл');
 }
 
 async function playEpisode(num, file, title) {
@@ -1477,6 +1519,7 @@ async function playEpisode(num, file, title) {
     const gen = ++playEpisodeGen;
     file = await getPlayableUrl(currentSelectedMovieId, file);
     if (gen !== playEpisodeGen) return; // Энэ хооронд өөр анги сонгосон эсвэл хаасан
+    if (!file) return showToast('Видео ачааллаж чадсангүй. Дахин оролдоно уу.', 'error');
     nowPlayingInfo = { movieId: currentSelectedMovieId, ep: num };
     // Өөр анги эхэлбэл "Үргэлжлүүлэн үзэх"-д шууд гарна (ижил анги бол хадгалсан секунд хэвээр)
     if (readProgress()[currentSelectedMovieId]?.ep !== num) saveProgress(currentSelectedMovieId, num, 0, 0);
@@ -1489,6 +1532,7 @@ async function playEpisode(num, file, title) {
 
     if (videoPlayerBox && myVideo) {
         videoPlayerBox.classList.remove('hidden');
+        applyDataSaver();
 
         const isHLS = file.includes('.m3u8');
 
@@ -1500,10 +1544,12 @@ async function playEpisode(num, file, title) {
                     maxMaxBufferLength: 60,
                     startLevel: -1,              // автомат чанар сонгоно
                     abrEwmaDefaultEstimate: 500000,
+                    capLevelToPlayerSize: true,  // жижиг дэлгэцэнд илүү өндөр чанар татахгүй
                 });
                 hlsInstance.loadSource(file);
                 hlsInstance.attachMedia(myVideo);
                 hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                    applyDataSaver();
                     myVideo.play().catch(e => console.log('Autoplay:', e));
                 });
                 hlsInstance.on(Hls.Events.ERROR, (event, data) => {
@@ -2162,178 +2208,63 @@ function toggleCoverUrlInput() {
     }
 }
 
-// ── Видео файл сонгох (Cloudflare Stream) ─────────────────────
-// ЗАСАЛ: encode дуусахыг хязгааргүй хугацаагаар background-д хүлээнэ.
-// 10GB, 180 мин видео ч алдаа гарахгүй.
-// Видео сонголт бүрт нэмэгдэнэ — хуучин upload/encode дуусахдаа шинэ сонголтыг дарж бичихгүй
-let videoSelectionGen = 0;
+// ── Видео: R2 HLS эсвэл URL ──────────────────────────────────────
+// Киног tools/hls-upload.ps1-ээр 480p/720p HLS (10 секундийн хэсэг) болгоод R2-ийн hls/<хавтас>/ руу хуулна.
+// Энд зөвхөн хавтасны нэрийг оруулна → episodes[0].file = "hls:<хавтас>" (Worker токеноор тоглуулна).
+const HLS_FOLDER_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
-async function handleVideoFileSelect(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const gen = ++videoSelectionGen;
-    const isStale = () => gen !== videoSelectionGen;
-
-    const statusText = document.getElementById('admVideoStatusText');
-    const saveBtn    = document.getElementById('btnAdminMovieSubmit');
-    if (statusText) statusText.innerText = `⏳ Upload эхлэж байна: ${file.name}`;
-    if (saveBtn)    { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
-
-    tempSelectedVideoFile = ''; // Encode дуустал хоосон — санамсаргүй хадгалахаас сэргийлнэ
-
-    showUploadBar('admVideoUploadArea', file.name, formatBytes(file.size));
-
-    try {
-        // 1️⃣ TUS upload хийнэ — streamId буцаана (encode хүлээхгүй)
-        const streamId = await uploadVideoToStream(file, (pct) => {
-            if (isStale()) return;
-            updateUploadBar(pct, `Upload хийж байна... (${pct}%)`);
-            if (statusText) statusText.innerText = `⏳ ${pct}% — ${file.name}`;
-        });
-        if (isStale()) return; // Энэ хооронд өөр видео сонгогдсон
-
-        // Upload дууслаа — encode background-д эхлэнэ
-        updateUploadBar(100, '✅ Upload дууслаа! Encode хүлээж байна...');
-        if (statusText) {
-            statusText.innerHTML =
-                `⏳ Encode хийгдэж байна... <span id="encodeTimer" style="color:#d6a142;">0 сек</span><br>` +
-                `<span style="font-size:10px;color:var(--text-muted);">Хуудсыг хаахгүй байна уу</span>`;
-        }
-        showToast('Upload дууслаа! Encode дуусахыг хүлээж байна... 🎬');
-
-        // Encode явцын таймер
-        let encodeSeconds = 0;
-        const encodeTimerInterval = setInterval(() => {
-            if (isStale()) return clearInterval(encodeTimerInterval);
-            encodeSeconds++;
-            const timerEl = document.getElementById('encodeTimer');
-            if (timerEl) {
-                const mins = Math.floor(encodeSeconds / 60);
-                const secs = encodeSeconds % 60;
-                timerEl.innerText = mins > 0 ? `${mins} мин ${secs} сек` : `${secs} сек`;
-            }
-        }, 1000);
-
-        // 2️⃣ Background polling — хязгааргүй хугацаагаар шалгана
-        pollStreamUntilReady(streamId, (hlsUrl) => {
-            clearInterval(encodeTimerInterval);
-            tempSelectedVideoFile = hlsUrl;
-            hideUploadBar(500);
-            if (statusText) statusText.innerHTML =
-                `✅ Encode дууслаа! Видео бэлэн болсон.<br>` +
-                `<span style="font-size:10px;color:#00c388;">${escapeHtml(file.name)}</span>`;
-            if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
-            showToast('Видео encode дууслаа! Анги нэмэх товч идэвхжлээ. 🎬');
-        }, (errMsg) => {
-            clearInterval(encodeTimerInterval);
-            hideUploadBar(0);
-            if (statusText) statusText.innerText = `❌ Encode алдаа: ${errMsg}`;
-            if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
-            showToast('Encode алдаа: ' + errMsg, 'error');
-        }, isStale);
-
-    } catch (err) {
-        if (isStale()) return;
-        hideUploadBar(0);
-        if (statusText) statusText.innerText = `❌ Upload алдаа: ${err.message}`;
-        if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
-        showToast('Видео upload алдаа: ' + err.message, 'error');
-        console.error(err);
-    }
+function setVideoStatus(text) {
+    let el = document.getElementById('admVideoStatusText');
+    if (el) el.innerText = text;
 }
 
-/**
- * Cloudflare Stream encode дуусахыг хязгааргүй хугацаагаар background-д шалгана.
- * Хугацааны алхам: 0–5мин → 10с, 5–30мин → 20с, 30мин+ → 30с
- * @param {string}   streamId  - Cloudflare Stream ID
- * @param {Function} onReady   - encode дуусмагц hlsUrl-тай дуудагдана
- * @param {Function} onError   - Worker-ийн encode алдаа гарвал дуудагдана
- * @param {Function} isCancelled - true буцаавал polling чимээгүй зогсоно (өөр видео сонгогдсон)
- */
-function pollStreamUntilReady(streamId, onReady, onError, isCancelled = () => false) {
-    let attempts = 0;
+function toggleHlsInput() {
+    let input = document.getElementById('admHlsFolder');
+    document.getElementById('admVideoUrl').style.display = 'none';
+    let show = input.style.display === 'none';
+    input.style.display = show ? 'block' : 'none';
+    if (!show) return;
+    // Анхдагч хавтас = киноны код (скрипт ч мөн адил нэрээр upload хийнэ)
+    if (!input.value) input.value = document.getElementById('admManualCode').value.trim();
+    input.focus();
+    onHlsFolderInput();
+}
 
-    function getInterval() {
-        if (attempts < 30) return 10_000;  // 0–5 мин: 10 секунд тутамд
-        if (attempts < 90) return 20_000;  // 5–30 мин: 20 секунд тутамд
-        return 30_000;                     // 30 мин+: 30 секунд тутамд (хязгааргүй)
+const checkHlsFolder = debounce(async function (folder) {
+    try {
+        const { exists } = await workerPost('/hls/check', { folder });
+        if (document.getElementById('admHlsFolder').value.trim() !== folder) return; // энэ хооронд өөрчилсөн
+        setVideoStatus(exists
+            ? `✅ R2 дээр олдлоо: hls/${folder}/`
+            : `❌ R2 дээр "${folder}" хавтас олдсонгүй — эхлээд скриптээр upload хийнэ үү.`);
+    } catch (err) {
+        setVideoStatus('⚠️ Шалгаж чадсангүй: ' + err.message);
     }
+}, 500);
 
-    async function check() {
-        if (isCancelled()) return;
-        attempts++;
-        try {
-            const status = await workerPost('/stream/status', { streamId });
-            if (isCancelled()) return;
-            if (status.status === 'ready') {
-                onReady(status.hlsUrl);
-                return; // Polling зогсоно
-            }
-            if (status.status === 'error') {
-                onError('Cloudflare Stream encode алдаа гарлаа');
-                return;
-            }
-            // Хэвийн processing → дараагийн шалгалт
-            setTimeout(check, getInterval());
-        } catch (err) {
-            // Network алдаа тохиолдвол retry — хаяхгүй
-            console.warn(`Stream status шалгах алдаа (оролдлого ${attempts}):`, err.message);
-            setTimeout(check, getInterval());
-        }
+function onHlsFolderInput() {
+    let folder = document.getElementById('admHlsFolder').value.trim();
+    if (!folder) { tempSelectedVideoFile = ''; return setVideoStatus('Видео сонгоогүй байна.'); }
+    if (!HLS_FOLDER_RE.test(folder)) {
+        tempSelectedVideoFile = '';
+        return setVideoStatus('❌ Хавтасны нэр зөвхөн латин үсэг, тоо, - _ байна.');
     }
-
-    setTimeout(check, 10_000); // Эхний шалгалт 10 секундын дараа
+    tempSelectedVideoFile = 'hls:' + folder;
+    setVideoStatus('⏳ R2 дээр шалгаж байна...');
+    checkHlsFolder(folder);
 }
 
 function toggleVideoUrlInput() {
     let urlInput = document.getElementById('admVideoUrl');
-    if (urlInput) {
-        urlInput.style.display = urlInput.style.display === 'none' ? 'block' : 'none';
-        if (urlInput.style.display === 'block') {
-            urlInput.focus();
-            urlInput.oninput = function () {
-                videoSelectionGen++; // явж буй upload/encode-ийг цуцална
-                tempSelectedVideoFile = this.value;
-                let statusText = document.getElementById('admVideoStatusText');
-                if (statusText) statusText.innerText = `✅ URL оруулсан: ${this.value.substring(0, 50)}`;
-            };
-        }
-    }
+    document.getElementById('admHlsFolder').style.display = 'none';
+    urlInput.style.display = urlInput.style.display === 'none' ? 'block' : 'none';
+    if (urlInput.style.display === 'block') urlInput.focus();
 }
 
-// ── Cloudflare Stream-д видео upload хийх (TUS protocol) ─────────
-async function uploadVideoToStream(file, onProgress) {
-    // 1. Worker-ээс TUS upload URL авна
-    const { uploadUrl, streamId } = await workerPost('/stream/upload', {
-        filename: file.name,
-        fileSize: file.size,
-    });
-
-    // 2. TUS upload хийнэ — chunk 50MB
-    const CHUNK = 50 * 1024 * 1024;
-    let offset = 0;
-
-    while (offset < file.size) {
-        const chunk = file.slice(offset, offset + CHUNK);
-        const res   = await fetch(uploadUrl, {
-            method: 'PATCH',
-            headers: {
-                'Tus-Resumable':  '1.0.0',
-                'Upload-Offset':  String(offset),
-                'Content-Type':   'application/offset+octet-stream',
-                'Content-Length': String(chunk.size),
-            },
-            body: chunk,
-        });
-        if (!res.ok) throw new Error('Stream upload chunk алдаа: ' + res.status);
-        offset += chunk.size;
-        if (onProgress) onProgress(Math.round(offset / file.size * 95));
-    }
-
-    // 3. Upload дуусмагц streamId-г шууд буцаана — encode хүлээхгүй.
-    // Encode background-д явна (pollStreamUntilReady ашиглана).
-    if (onProgress) onProgress(100);
-    return streamId;
+function onVideoUrlInput() {
+    let v = document.getElementById('admVideoUrl').value.trim();
+    tempSelectedVideoFile = v;
+    setVideoStatus(v ? `✅ URL оруулсан: ${v.substring(0, 50)}` : 'Видео сонгоогүй байна.');
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2618,9 +2549,10 @@ function adminResetMovieForm() {
     tempSelectedCoverFile = '';
 
     tempSelectedVideoFile = '';
-    videoSelectionGen++; // явж буй upload/encode-ийг цуцална
-    document.getElementById('admVideoFileInput').value = '';
-    document.getElementById('admVideoStatusText').innerText = 'Видео сонгоогүй байна.';
+    document.getElementById('admHlsFolder').value = '';
+    document.getElementById('admHlsFolder').style.display = 'none';
+    document.getElementById('admVideoUrl').style.display = 'none';
+    setVideoStatus('Видео сонгоогүй байна.');
 
     document.getElementById('admFormTitle').innerText = 'Кино нэмэх';
     document.getElementById('btnAdminMovieSubmit').innerText = 'Шууд нийтлэх';
@@ -2667,9 +2599,12 @@ async function adminPrepareEditMovie(id) {
     statusEl.innerText = 'Видео шалгаж байна...';
     let episodes = await fetchEpisodes(id);
     if (adminEditingMovieId !== id) return;
-    statusEl.innerText = episodes.length
-        ? '✅ Видео оруулсан байна. Солих бол шинээр сонгоно уу.'
-        : '⚠️ Видео байхгүй — видео оруулна уу.';
+    let currentFile = episodes[0]?.file || '';
+    statusEl.innerText = !episodes.length
+        ? '⚠️ Видео байхгүй — видео оруулна уу.'
+        : currentFile.startsWith('hls:')
+            ? `✅ R2 HLS: hls/${currentFile.slice(4)}/ — солих бол шинээр сонгоно уу.`
+            : '✅ Видео оруулсан байна. Солих бол шинээр сонгоно уу.';
 }
 
 // ===== АДМИН: БҮХ КИНОНЫ ЖАГСААЛТ (үзэлт, худалдан авалт) =====

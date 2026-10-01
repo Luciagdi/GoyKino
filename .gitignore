@@ -5,3 +5,7 @@ node_modules/
 .env.*
 .DS_Store
 Thumbs.db
+
+# hls-upload.ps1-ийн түр гаралт
+tools/hls-out/
+tools/upload-key.txt

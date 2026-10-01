@@ -229,6 +229,7 @@
                         <div class="video-player-wrapper">
                             <div class="video-player-header">
                                 <span id="videoNowPlayingTitle" style="font-weight:600;color:var(--vip-color);"><i class="fas fa-play-circle"></i> Одоо тоглуулж байна...</span>
+                                <button class="data-saver-btn" id="dataSaverBtn" onclick="toggleDataSaver()"></button>
                                 <button onclick="closeVideoPlayer()" style="background:#ef4444;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-times"></i> Хаах</button>
                             </div>
                             <video id="myVideo" controls style="width:100%;border-radius:0 0 12px 12px;background:#000;max-height:500px;">
@@ -400,21 +401,21 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- Видео — кино бүр нэг ангитай -->
+                            <!-- Видео — кино бүр нэг ангитай. R2 HLS: tools/hls-upload.ps1-ээр upload хийсэн хавтас -->
                             <div class="form-group">
                                 <label>Видео</label>
                                 <div class="file-upload-area" id="admVideoUploadArea">
                                     <div class="file-upload-btns">
-                                        <button type="button" class="btn-upload-file" onclick="document.getElementById('admVideoFileInput').click()">
-                                            <i class="fas fa-file-video"></i> Галерейгаас видео
+                                        <button type="button" class="btn-upload-file" onclick="toggleHlsInput()">
+                                            <i class="fas fa-server"></i> R2 (HLS)
                                         </button>
                                         <span style="color:var(--text-muted);font-size:12px;">эсвэл</span>
                                         <button type="button" class="btn-upload-file" style="background:#1c2031;" onclick="toggleVideoUrlInput()">
                                             <i class="fas fa-link"></i> URL/Линк
                                         </button>
                                     </div>
-                                    <input type="file" id="admVideoFileInput" accept="video/*" onchange="handleVideoFileSelect(event)" style="display:none;">
-                                    <input type="text" id="admVideoUrl" placeholder="https://... эсвэл видеоны линк" style="display:none;margin-top:8px;">
+                                    <input type="text" id="admHlsFolder" placeholder="R2 хавтас (ихэвчлэн киноны код)" oninput="onHlsFolderInput()" style="display:none;margin-top:8px;">
+                                    <input type="text" id="admVideoUrl" placeholder="https://... эсвэл видеоны линк" oninput="onVideoUrlInput()" style="display:none;margin-top:8px;">
                                     <span id="admVideoStatusText" style="font-size:11px;color:var(--text-muted);display:block;margin-top:5px;">Видео сонгоогүй байна.</span>
                                 </div>
                             </div>

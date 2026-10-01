@@ -8,14 +8,17 @@ var worker_default = {
     }
     const url = new URL(request.url);
 
-    // /stream/token — нэвтрээгүй хэрэглэгч ч үнэгүй кино үзнэ, эрхийг get_movie_episodes шалгана
-    if (url.pathname === "/stream/token") {
-      try {
-        return await handleStreamToken(request, env);
-      } catch (err) {
-        console.error(err);
-        return corsResponse({ error: err.message || "Internal server error" }, 500);
+    // Нэвтрээгүй хэрэглэгч ч үнэгүй кино үзнэ — эрхийг get_movie_episodes / HLS токен шалгана
+    try {
+      if (url.pathname === "/stream/token") return await handleStreamToken(request, env);
+      if (url.pathname === "/hls/token")    return await handleHlsToken(request, env, url);
+      if (url.pathname.startsWith("/hls/upload/") && request.method === "PUT") return await handleHlsUpload(request, env, url);
+      if (url.pathname.startsWith("/hls/") && (request.method === "GET" || request.method === "HEAD")) {
+        return await handleHlsFile(env, url);
       }
+    } catch (err) {
+      console.error(err);
+      return corsResponse({ error: err.message || "Internal server error" }, 500);
     }
 
     let payload;
@@ -28,7 +31,7 @@ var worker_default = {
       // /upload/file — avatar-ыг энгийн хэрэглэгч ч upload хийж болно, бусад нь staff
       if (url.pathname === "/upload/file")               return await handleFileUpload(request, env, payload);
 
-      // Имэйл зөвхөн админ, бусад upload/stream зөвхөн админ эсвэл модератор
+      // Имэйл зөвхөн админ, бусад нь зөвхөн админ эсвэл модератор
       const role = await getUserRole(env, payload);
       const isAdmin = role === "admin";
       const isStaff = role === "admin" || role === "moderator";
@@ -38,8 +41,7 @@ var worker_default = {
         return await handleEmail(request, env);
       }
       if (!isStaff) return forbidden();
-      if (url.pathname === "/stream/upload")             return await handleStreamUpload(request, env);
-      if (url.pathname === "/stream/status")             return await handleStreamStatus(request, env);
+      if (url.pathname === "/hls/check")                 return await handleHlsCheck(request, env);
       return corsResponse({ error: "Not found" }, 404);
     } catch (err) {
       console.error(err);
@@ -135,32 +137,9 @@ async function handleFileUpload(request, env, payload) {
     return corsResponse({ publicUrl: `${env.R2_PUBLIC_URL}/${key}${version}`, key });
 }
 
-// UTF-8 аюулгүй base64 — btoa() кирилл нэртэй файл дээр алдаа заадаг
-function utf8ToBase64(str) {
-    const bytes = new TextEncoder().encode(str);
-    let bin = '';
-    for (const b of bytes) bin += String.fromCharCode(b);
-    return btoa(bin);
-}
-
-// Stream HLS/DASH URL-аас 32 тэмдэгттэй video UID гаргана
-function streamUidFromUrl(url) {
-    if (typeof url !== 'string') return null;
-    const m = url.match(/(?:cloudflarestream\.com|videodelivery\.net)\/([a-f0-9]{32})\//i);
-    return m ? m[1] : null;
-}
-
-// ── Stream signed URL ────────────────────────────────────────────
-// Хэрэглэгч тухайн ангийг үзэх эрхтэй эсэхийг get_movie_episodes-ээр шалгаад
-// 6 цагийн хугацаатай token олгоно. requireSignedURLs идэвхтэй видеог token-гүй үзэх боломжгүй.
-async function handleStreamToken(request, env) {
-    if (!env.STREAM_API_TOKEN || !env.CF_ACCOUNT_ID) {
-        return corsResponse({ error: 'Stream тохируулаагүй' }, 500);
-    }
-    const { movieId, file } = await request.json();
-    const uid = streamUidFromUrl(file);
-    if (!movieId || !uid) return corsResponse({ error: 'movieId, file шаардлагатай' }, 400);
-
+// Хэрэглэгч (нэвтрээгүй ч байж болно) тухайн киноны энэ видеог үзэх эрхтэй эсэх.
+// get_movie_episodes нь эрхгүй хэрэглэгчид хоосон жагсаалт буцаадаг — видео нь тэнд байвал эрхтэй.
+async function userCanWatchFile(request, env, movieId, matches) {
     const auth = request.headers.get('Authorization') || '';
     const rpcRes = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/get_movie_episodes`, {
         method: 'POST',
@@ -171,11 +150,28 @@ async function handleStreamToken(request, env) {
         },
         body: JSON.stringify({ p_movie_id: movieId }),
     });
-    if (!rpcRes.ok) return forbidden();
+    if (!rpcRes.ok) return false;
     const episodes = await rpcRes.json();
-    if (!Array.isArray(episodes) || !episodes.some(ep => streamUidFromUrl(ep?.file) === uid)) {
-        return forbidden();
+    return Array.isArray(episodes) && episodes.some(ep => matches(ep?.file));
+}
+
+// Stream HLS/DASH URL-аас 32 тэмдэгттэй video UID гаргана
+function streamUidFromUrl(url) {
+    if (typeof url !== 'string') return null;
+    const m = url.match(/(?:cloudflarestream\.com|videodelivery\.net)\/([a-f0-9]{32})\//i);
+    return m ? m[1] : null;
+}
+
+// ── Stream signed URL (хуучин Stream видеонуудад) ─────────────────
+// 6 цагийн хугацаатай token олгоно. requireSignedURLs идэвхтэй видеог token-гүй үзэх боломжгүй.
+async function handleStreamToken(request, env) {
+    if (!env.STREAM_API_TOKEN || !env.CF_ACCOUNT_ID) {
+        return corsResponse({ error: 'Stream тохируулаагүй' }, 500);
     }
+    const { movieId, file } = await request.json();
+    const uid = streamUidFromUrl(file);
+    if (!movieId || !uid) return corsResponse({ error: 'movieId, file шаардлагатай' }, 400);
+    if (!await userCanWatchFile(request, env, movieId, f => streamUidFromUrl(f) === uid)) return forbidden();
 
     const tokRes = await fetch(
         `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/stream/${uid}/token`,
@@ -198,64 +194,143 @@ async function handleStreamToken(request, env) {
     return corsResponse({ url: file.replace(uid, token) });
 }
 
-// ── Cloudflare Stream upload ─────────────────────────────────────
-async function handleStreamUpload(request, env) {
-    if (!env.STREAM_API_TOKEN || !env.CF_ACCOUNT_ID) {
-        return corsResponse({ error: 'Stream тохируулаагүй' }, 500);
-    }
-    const { filename, fileSize } = await request.json();
-    if (!filename || !fileSize) {
-        return corsResponse({ error: 'filename, fileSize шаардлагатай' }, 400);
-    }
+// ── R2 HLS ───────────────────────────────────────────────────────
+// Видео нь HLS_BUCKET (нийтэд нээлттэй БИШ) дотор hls/<хавтас>/ доор хадгалагдана:
+//   master.m3u8, stream_720p.m3u8, stream_480p.m3u8, 720p_0000.ts ...  (tools/hls-upload.ps1 бэлдэнэ)
+// Киноны episodes[].file нь "hls:<хавтас>" хэлбэртэй.
+// Тоглуулахад: /hls/token → 6 цагийн HMAC токен → файл бүр (?t=токен) шалгагдаж R2-аас уншигдана.
+const HLS_TOKEN_TTL = 6 * 60 * 60;
+const HLS_FOLDER_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const HLS_TYPES = {
+    m3u8: 'application/vnd.apple.mpegurl',
+    ts:   'video/mp2t',
+    m4s:  'video/iso.segment',
+    mp4:  'video/mp4',
+    aac:  'audio/aac',
+    vtt:  'text/vtt',
+};
 
-    // Cloudflare Stream TUS upload URL авна
-    const res = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/stream?direct_user=true`,
-        {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${env.STREAM_API_TOKEN}`,
-                'Tus-Resumable': '1.0.0',
-                'Upload-Length': String(fileSize),
-                // requiresignedurls — видеог зөвхөн /stream/token-ий signed URL-аар үзнэ
-                'Upload-Metadata': `name ${utf8ToBase64(filename)},requiresignedurls`,
-            }
-        }
-    );
-
-    if (!res.ok) {
-        const err = await res.text();
-        return corsResponse({ error: 'Stream upload үүсгэхэд алдаа: ' + err }, 500);
-    }
-
-    const uploadUrl = res.headers.get('Location');
-    const streamId  = res.headers.get('stream-media-id');
-
-    return corsResponse({ uploadUrl, streamId });
+function hlsFolderFromFile(file) {
+    if (typeof file !== 'string' || !file.startsWith('hls:')) return null;
+    const folder = file.slice(4);
+    return HLS_FOLDER_RE.test(folder) ? folder : null;
 }
 
-// ── Stream видео мэдээлэл авах ────────────────────────────────────
-async function handleStreamStatus(request, env) {
-    const { streamId } = await request.json();
-    if (!streamId) return corsResponse({ error: 'streamId шаардлагатай' }, 400);
-
-    const res = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/stream/${streamId}`,
-        {
-            headers: { 'Authorization': `Bearer ${env.STREAM_API_TOKEN}` }
-        }
+async function hmacHex(secret, data) {
+    const key = await crypto.subtle.importKey(
+        'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
     );
-    if (!res.ok) return corsResponse({ error: 'Stream олдсонгүй' }, 404);
+    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+    return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-    const data = await res.json();
-    const result = data.result || {};
-    return corsResponse({
-        status:    result.status?.state,
-        hlsUrl:    result.playback?.hls,
-        dashUrl:   result.playback?.dash,
-        thumbnail: result.thumbnail,
-        duration:  result.duration,
-    });
+async function makeHlsToken(env, folder) {
+    const exp = Math.floor(Date.now() / 1000) + HLS_TOKEN_TTL;
+    return `${exp}.${await hmacHex(env.HLS_SIGNING_KEY, `${folder}.${exp}`)}`;
+}
+
+// Хугацааны ялгаагаар таахаас сэргийлж бүх тэмдэгтийг харьцуулна
+function safeEqual(a, b) {
+    a = String(a || ''); b = String(b || '');
+    if (!a || a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return diff === 0;
+}
+
+async function verifyHlsToken(env, folder, token) {
+    const [expStr, sig] = String(token || '').split('.');
+    const exp = Number(expStr);
+    if (!exp || !sig || exp < Date.now() / 1000) return false;
+    return safeEqual(await hmacHex(env.HLS_SIGNING_KEY, `${folder}.${exp}`), sig);
+}
+
+function hlsConfigured(env) {
+    return !!(env.HLS_BUCKET && env.HLS_SIGNING_KEY);
+}
+
+// POST /hls/token { movieId, file: "hls:<хавтас>" } → { url: ".../hls/<хавтас>/master.m3u8?t=..." }
+async function handleHlsToken(request, env, url) {
+    if (!hlsConfigured(env)) return corsResponse({ error: 'HLS тохируулаагүй' }, 500);
+    const { movieId, file } = await request.json();
+    const folder = hlsFolderFromFile(file);
+    if (!movieId || !folder) return corsResponse({ error: 'movieId, file шаардлагатай' }, 400);
+    if (!await userCanWatchFile(request, env, movieId, f => f === file)) return forbidden();
+
+    const token = await makeHlsToken(env, folder);
+    return corsResponse({ url: `${url.origin}/hls/${folder}/master.m3u8?t=${token}` });
+}
+
+function hlsHeaders(contentType, cacheControl) {
+    return {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl,
+        'Access-Control-Allow-Origin': '*',
+    };
+}
+
+// URI-д токен залгана (плейлист доторх сегмент/дэд плейлист бүр шалгагдана)
+function withHlsToken(uri, token) {
+    if (/^[a-z]+:/i.test(uri)) return uri; // гадны бүтэн URL-д хүрэхгүй
+    return `${uri}${uri.includes('?') ? '&' : '?'}t=${encodeURIComponent(token)}`;
+}
+
+// GET /hls/<хавтас>/<файл>?t=<токен>
+async function handleHlsFile(env, url) {
+    if (!hlsConfigured(env)) return new Response('HLS тохируулаагүй', { status: 500, headers: hlsHeaders('text/plain', 'no-store') });
+    const m = url.pathname.match(/^\/hls\/([A-Za-z0-9_-]{1,64})\/([A-Za-z0-9_.\/-]{1,200})$/);
+    if (!m || m[2].includes('..')) return new Response('Not found', { status: 404, headers: hlsHeaders('text/plain', 'no-store') });
+    const [, folder, rest] = m;
+    const token = url.searchParams.get('t');
+    if (!await verifyHlsToken(env, folder, token)) {
+        return new Response('Forbidden', { status: 403, headers: hlsHeaders('text/plain', 'no-store') });
+    }
+
+    const obj = await env.HLS_BUCKET.get(`hls/${folder}/${rest}`);
+    if (!obj) return new Response('Not found', { status: 404, headers: hlsHeaders('text/plain', 'no-store') });
+
+    const ext = rest.split('.').pop().toLowerCase();
+    if (ext === 'm3u8') {
+        const text = (await obj.text()).split('\n').map(line => {
+            const l = line.trim();
+            if (!l) return line;
+            if (l.startsWith('#')) return line.replace(/URI="([^"]+)"/g, (_, uri) => `URI="${withHlsToken(uri, token)}"`);
+            return withHlsToken(l, token);
+        }).join('\n');
+        return new Response(text, { headers: hlsHeaders(HLS_TYPES.m3u8, 'private, max-age=60') });
+    }
+    // Сегментүүд өөрчлөгддөггүй — хөтөч дээр кэшлэнэ
+    return new Response(obj.body, { headers: hlsHeaders(HLS_TYPES[ext] || 'application/octet-stream', 'private, max-age=86400') });
+}
+
+// PUT /hls/upload/<хавтас>/<файл> — tools/hls-upload.ps1 видеоны хэсгүүдийг R2 руу хуулна.
+// "X-Upload-Key" толгой нь HLS_UPLOAD_KEY нууц түлхүүртэй таарах ёстой (админы компьютер дээр tools/upload-key.txt).
+const HLS_UPLOAD_MAX = 50 * 1024 * 1024;
+
+async function handleHlsUpload(request, env, url) {
+    if (!hlsConfigured(env) || !env.HLS_UPLOAD_KEY) return corsResponse({ error: 'HLS upload тохируулаагүй' }, 500);
+    // trim — `wrangler secret put` stdin-ээр төгсгөлийн мөр шилжүүлэлт хадгалагдаж болдог
+    if (!safeEqual(String(request.headers.get('X-Upload-Key') || '').trim(), String(env.HLS_UPLOAD_KEY).trim())) return forbidden();
+
+    const m = url.pathname.match(/^\/hls\/upload\/([A-Za-z0-9_-]{1,64})\/([A-Za-z0-9_-]{1,80}\.(m3u8|ts))$/);
+    if (!m) return corsResponse({ error: 'Буруу файлын нэр (зөвхөн .m3u8, .ts)' }, 400);
+    const [, folder, name, ext] = m;
+
+    const body = await request.arrayBuffer();
+    if (!body.byteLength) return corsResponse({ error: 'Хоосон файл' }, 400);
+    if (body.byteLength > HLS_UPLOAD_MAX) return corsResponse({ error: 'Файл хэт том (50MB хүртэл)' }, 413);
+
+    await env.HLS_BUCKET.put(`hls/${folder}/${name}`, body, { httpMetadata: { contentType: HLS_TYPES[ext] } });
+    return corsResponse({ ok: true, key: `hls/${folder}/${name}`, size: body.byteLength });
+}
+
+// POST /hls/check { folder } — админ: R2 дээр master.m3u8 байгаа эсэх
+async function handleHlsCheck(request, env) {
+    if (!hlsConfigured(env)) return corsResponse({ error: 'HLS тохируулаагүй' }, 500);
+    const { folder } = await request.json();
+    if (!HLS_FOLDER_RE.test(folder || '')) return corsResponse({ error: 'Буруу хавтасны нэр' }, 400);
+    const head = await env.HLS_BUCKET.head(`hls/${folder}/master.m3u8`);
+    return corsResponse({ exists: !!head, uploaded: head?.uploaded || null });
 }
 
 async function handleEmail(request, env) {
