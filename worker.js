@@ -14,7 +14,7 @@ var worker_default = {
       if (url.pathname === "/hls/token")    return await handleHlsToken(request, env, url);
       if (url.pathname.startsWith("/hls/upload/") && request.method === "PUT") return await handleHlsUpload(request, env, url);
       if (url.pathname.startsWith("/hls/") && (request.method === "GET" || request.method === "HEAD")) {
-        return await handleHlsFile(env, url);
+        return await handleHlsFile(request, env, url);
       }
     } catch (err) {
       console.error(err);
@@ -199,7 +199,36 @@ async function handleStreamToken(request, env) {
 //   master.m3u8, stream_720p.m3u8, stream_480p.m3u8, 720p_0000.ts ...  (tools/hls-upload.ps1 бэлдэнэ)
 // Киноны episodes[].file нь "hls:<хавтас>" хэлбэртэй.
 // Тоглуулахад: /hls/token → 6 цагийн HMAC токен → файл бүр (?t=токен) шалгагдаж R2-аас уншигдана.
-const HLS_TOKEN_TTL = 6 * 60 * 60;
+const HLS_TOKEN_TTL = 4 * 60 * 60;
+
+// Хулгайгаар татахаас сэргийлэх:
+//  1) Токен нь үзэгчийн IP сүлжээнд (IPv4 /24, IPv6 /64) уягдана — линкийг хуулж
+//     татагч сайт/өөр хүнд өгөхөд тэдний IP өөр тул 403 болно.
+//  2) Өөр вэбсайтаас (Origin) ирсэн хүсэлтийг хориглоно — татагч өргөтгөл, хуулбар сайт.
+const HLS_ALLOWED_ORIGINS = [
+    /^https:\/\/(www\.)?goykino\.uk$/,
+    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+];
+
+function originAllowed(request) {
+    const origin = request.headers.get('Origin');
+    if (!origin) return true; // Safari-ийн native тоглуулагч Origin илгээдэггүй
+    return HLS_ALLOWED_ORIGINS.some(re => re.test(origin));
+}
+
+// Үзэгчийн сүлжээ: утас Wi-Fi/дата хооронд шилжихэд жижиг өөрчлөлтийг тэсвэрлэнэ
+function clientNet(request) {
+    const ip = request.headers.get('CF-Connecting-IP') || '';
+    if (ip.includes(':')) {
+        const [head, tail = ''] = ip.split('::');
+        const h = head ? head.split(':') : [];
+        const t = tail ? tail.split(':') : [];
+        const full = ip.includes('::') ? [...h, ...Array(8 - h.length - t.length).fill('0'), ...t] : h;
+        return full.slice(0, 4).map(x => parseInt(x || '0', 16).toString(16)).join(':') + '::/64';
+    }
+    const p = ip.split('.');
+    return p.length === 4 ? `${p[0]}.${p[1]}.${p[2]}.0/24` : ip;
+}
 const HLS_FOLDER_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const HLS_TYPES = {
     m3u8: 'application/vnd.apple.mpegurl',
@@ -224,9 +253,9 @@ async function hmacHex(secret, data) {
     return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function makeHlsToken(env, folder) {
+async function makeHlsToken(env, folder, net) {
     const exp = Math.floor(Date.now() / 1000) + HLS_TOKEN_TTL;
-    return `${exp}.${await hmacHex(env.HLS_SIGNING_KEY, `${folder}.${exp}`)}`;
+    return `${exp}.${await hmacHex(env.HLS_SIGNING_KEY, `${folder}.${exp}.${net}`)}`;
 }
 
 // Хугацааны ялгаагаар таахаас сэргийлж бүх тэмдэгтийг харьцуулна
@@ -238,11 +267,11 @@ function safeEqual(a, b) {
     return diff === 0;
 }
 
-async function verifyHlsToken(env, folder, token) {
+async function verifyHlsToken(env, folder, token, net) {
     const [expStr, sig] = String(token || '').split('.');
     const exp = Number(expStr);
     if (!exp || !sig || exp < Date.now() / 1000) return false;
-    return safeEqual(await hmacHex(env.HLS_SIGNING_KEY, `${folder}.${exp}`), sig);
+    return safeEqual(await hmacHex(env.HLS_SIGNING_KEY, `${folder}.${exp}.${net}`), sig);
 }
 
 function hlsConfigured(env) {
@@ -252,12 +281,13 @@ function hlsConfigured(env) {
 // POST /hls/token { movieId, file: "hls:<хавтас>" } → { url: ".../hls/<хавтас>/master.m3u8?t=..." }
 async function handleHlsToken(request, env, url) {
     if (!hlsConfigured(env)) return corsResponse({ error: 'HLS тохируулаагүй' }, 500);
+    if (!originAllowed(request)) return forbidden();
     const { movieId, file } = await request.json();
     const folder = hlsFolderFromFile(file);
     if (!movieId || !folder) return corsResponse({ error: 'movieId, file шаардлагатай' }, 400);
     if (!await userCanWatchFile(request, env, movieId, f => f === file)) return forbidden();
 
-    const token = await makeHlsToken(env, folder);
+    const token = await makeHlsToken(env, folder, clientNet(request));
     return corsResponse({ url: `${url.origin}/hls/${folder}/master.m3u8?t=${token}` });
 }
 
@@ -276,13 +306,13 @@ function withHlsToken(uri, token) {
 }
 
 // GET /hls/<хавтас>/<файл>?t=<токен>
-async function handleHlsFile(env, url) {
+async function handleHlsFile(request, env, url) {
     if (!hlsConfigured(env)) return new Response('HLS тохируулаагүй', { status: 500, headers: hlsHeaders('text/plain', 'no-store') });
     const m = url.pathname.match(/^\/hls\/([A-Za-z0-9_-]{1,64})\/([A-Za-z0-9_.\/-]{1,200})$/);
     if (!m || m[2].includes('..')) return new Response('Not found', { status: 404, headers: hlsHeaders('text/plain', 'no-store') });
     const [, folder, rest] = m;
     const token = url.searchParams.get('t');
-    if (!await verifyHlsToken(env, folder, token)) {
+    if (!originAllowed(request) || !await verifyHlsToken(env, folder, token, clientNet(request))) {
         return new Response('Forbidden', { status: 403, headers: hlsHeaders('text/plain', 'no-store') });
     }
 

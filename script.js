@@ -782,6 +782,20 @@ function showPage(pageId, opts = {}) {
     updateHeaderStyle();
 }
 
+// ===== САЙТЫН ДООД ХЭСЭГ =====
+function footerOpenProfile() {
+    if (!currentUser) return openModal('loginModal');
+    showPage('profilePage');
+}
+
+(function setupFooter() {
+    let year = document.getElementById('footerYear');
+    if (year) year.textContent = new Date().getFullYear();
+    let fb = document.getElementById('footerFacebook');
+    let url = typeof FACEBOOK_URL !== 'undefined' ? safeUrl(FACEBOOK_URL) : '';
+    if (fb && url && url !== '#') { fb.href = url; fb.classList.remove('hidden'); }
+})();
+
 // ===== БУЦАХ =====
 // "‹" товч — өмнөх хуудас руу. Түүх байхгүй бол (шууд линкээр орсон) нүүр хуудас руу.
 function goBack() {
@@ -1491,6 +1505,7 @@ function playEpisodeFromBtn(btn) {
 // ===== ВИДЕО ТОГЛУУЛАГЧ =====
 // HLS instance глобалд хадгална — episode солихдоо destroy хийнэ
 let hlsInstance = null;
+let hlsSource = null; // { movieId, file: "hls:<хавтас>", retries }
 // Анги солих/хаах бүрт нэмэгдэнэ — удаан ирсэн token хуучин ангийг тоглуулахгүй
 let playEpisodeGen = 0;
 
@@ -1581,9 +1596,10 @@ function tapToPlay() {
     let video = document.getElementById('myVideo');
     if (!video) return;
     video.addEventListener('playing', () => document.getElementById('videoTapToPlay')?.classList.add('hidden'));
-    video.addEventListener('error', () => {
+    video.addEventListener('error', async () => {
         let code = video.error?.code;
         if (!code || !video.getAttribute('src')) return; // хаах үед src='' болгоход гарах алдааг тоохгүй
+        if (code === 2 && !hlsInstance && await refreshHlsToken()) return; // Safari: токен солигдсон байж магадгүй
         let msg = code === 4 ? 'Энэ төхөөрөмж/хөтөч видеоны форматыг дэмжихгүй байна'
                 : code === 2 ? 'Сүлжээний алдаа — интернэтээ шалгана уу'
                 : code === 3 ? 'Видеог задлахад алдаа гарлаа'
@@ -1591,6 +1607,30 @@ function tapToPlay() {
         showToast(`${msg} (код ${code})`, 'error');
     });
 })();
+
+// Шинэ токен аваад тоглож байсан цэгээсээ үргэлжлүүлнэ (5 минутад 2 удаагаас илүү оролдохгүй)
+async function refreshHlsToken() {
+    let video = document.getElementById('myVideo');
+    if (!hlsSource || !video) return false;
+    if (Date.now() - (hlsSource.at || 0) > 5 * 60 * 1000) hlsSource.retries = 0; // удаан хэвийн тоглосон бол дахин эрх
+    if (hlsSource.retries >= 2) return false;
+    hlsSource.retries++;
+    hlsSource.at = Date.now();
+    const gen = playEpisodeGen;
+    let at = video.currentTime || 0;
+    let url = await getPlayableUrl(hlsSource.movieId, hlsSource.file);
+    if (!url || gen !== playEpisodeGen) return false;
+    if (hlsInstance) {
+        hlsInstance.config.startPosition = at;
+        hlsInstance.loadSource(url);
+    } else {
+        video.src = url;
+        video.addEventListener('loadedmetadata', () => { video.currentTime = at; }, { once: true });
+        video.load();
+        tryPlay(video);
+    }
+    return true;
+}
 
 async function playEpisode(num, file, title) {
     let videoPlayerBox = document.getElementById('videoPlayerBox');
@@ -1603,6 +1643,8 @@ async function playEpisode(num, file, title) {
     }
 
     const gen = ++playEpisodeGen;
+    hlsSource = typeof file === 'string' && file.startsWith('hls:')
+        ? { movieId: currentSelectedMovieId, file, retries: 0 } : null;
     file = await getPlayableUrl(currentSelectedMovieId, file);
     if (gen !== playEpisodeGen) return; // Энэ хооронд өөр анги сонгосон эсвэл хаасан
     if (!file) return showToast('Видео ачааллаж чадсангүй. Дахин оролдоно уу.', 'error');
@@ -1638,8 +1680,10 @@ async function playEpisode(num, file, title) {
                     applyDataSaver();
                     tryPlay(myVideo);
                 });
-                hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+                hlsInstance.on(Hls.Events.ERROR, async (event, data) => {
                     if (data.fatal) {
+                        // Токен хугацаа дууссан / Wi-Fi ↔ дата солигдсон (403) → шинэ токеноор үргэлжлүүлнэ
+                        if (data.response?.code === 403 && await refreshHlsToken()) return;
                         showToast('Видео ачааллахад алдаа гарлаа.', 'error');
                         console.error('HLS алдаа:', data);
                     }
@@ -1676,6 +1720,7 @@ function closeVideoPlayer() {
     let videoPlayerBox = document.getElementById('videoPlayerBox');
     let myVideo        = document.getElementById('myVideo');
     playEpisodeGen++;
+    hlsSource = null;
     if (nowPlayingInfo && myVideo && myVideo.currentTime > 0) {
         saveProgress(nowPlayingInfo.movieId, nowPlayingInfo.ep, myVideo.currentTime, myVideo.duration);
     }

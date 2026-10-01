@@ -9,6 +9,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // --- Сайтын үндсэн хаяг (имэйлийн линк, нууц үг сэргээх redirect) ---
 const SITE_URL = 'https://www.goykino.uk';
 
+// --- Facebook хуудас (сайтын доод хэсэгт харагдана; хоосон бол товч нуугдана) ---
+const FACEBOOK_URL = 'https://www.facebook.com/share/1HpCiCQ8Tw/';
+
 // --- Cloudflare Worker ---
 const WORKER_URL = 'https://goykino-worker.goykino01.workers.dev';
 

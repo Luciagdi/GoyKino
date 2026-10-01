@@ -597,3 +597,22 @@ svg.lc{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:middle;}
     .hc-rank{font-size:24px;}
     .home-ad{border-radius:10px;height:auto;aspect-ratio:4/1;}
 }
+
+/* САЙТЫН ДООД ХЭСЭГ */
+.site-footer{margin:56px -30px -30px;padding:36px 30px 22px;border-top:1px solid var(--border-color);background:#060a1f;}
+.sf-top{display:grid;grid-template-columns:2fr 1fr 1fr;gap:32px;max-width:1100px;}
+.sf-brand .logo-text{font-size:22px;font-weight:800;letter-spacing:0.5px;margin-bottom:10px;}
+.sf-brand .logo-text span{color:var(--primary);}
+.sf-brand p{font-size:13px;line-height:1.6;color:var(--text-muted);max-width:320px;margin:0 0 16px;}
+.sf-fb{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 16px;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;
+    background:#1877f2;color:#fff;transition:filter 0.2s;}
+.sf-fb:hover{filter:brightness(1.12);}
+.sf-col h4{font-size:13px;font-weight:800;color:var(--text-main);margin:4px 0 12px;}
+.sf-col a{display:block;font-size:13px;color:var(--text-muted);text-decoration:none;padding:5px 0;transition:color 0.2s;}
+.sf-col a:hover{color:var(--primary);}
+.sf-bottom{max-width:1100px;margin-top:28px;padding-top:16px;border-top:1px solid var(--border-color);font-size:12px;color:var(--text-dim);}
+@media(max-width:768px){
+    .site-footer{margin:40px -15px -15px;padding:28px 16px 24px;}
+    .sf-top{grid-template-columns:1fr 1fr;gap:24px;}
+    .sf-brand{grid-column:1 / -1;}
+}

@@ -233,9 +233,9 @@
                                 <button class="data-saver-btn" id="dataSaverBtn" onclick="toggleDataSaver()"></button>
                                 <button onclick="closeVideoPlayer()" style="background:#ef4444;color:white;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;"><i class="fas fa-times"></i> Хаах</button>
                             </div>
-                            <div class="video-stage">
+                            <div class="video-stage" oncontextmenu="return false;">
                                 <!-- playsinline — iPhone дээр бүтэн дэлгэцэнд гацахгүй, хуудсан дотроо тоглоно -->
-                                <video id="myVideo" controls playsinline webkit-playsinline preload="metadata" style="width:100%;display:block;border-radius:0 0 12px 12px;background:#000;max-height:500px;">
+                                <video id="myVideo" controls controlslist="nodownload" playsinline webkit-playsinline preload="metadata" style="width:100%;display:block;border-radius:0 0 12px 12px;background:#000;max-height:500px;">
                                     Таны броузер видеог дэмжихгүй байна.
                                 </video>
                                 <!-- Утасны хөтөч автоматаар тоглуулахыг хориглосон үед -->
@@ -481,6 +481,33 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Сайтын доод хэсэг — бүх хуудсанд -->
+            <footer class="site-footer">
+                <div class="sf-top">
+                    <div class="sf-brand">
+                        <div class="logo-text">Goy<span>Kino</span></div>
+                        <p>Монгол хадмалтай кино, цувралуудыг хүссэн үедээ, хүссэн газраасаа үзээрэй.</p>
+                        <a class="sf-fb hidden" id="footerFacebook" href="#" target="_blank" rel="noopener noreferrer">
+                            <i class="fab fa-facebook-f"></i> Facebook хуудас
+                        </a>
+                    </div>
+                    <div class="sf-col">
+                        <h4>Цэс</h4>
+                        <a href="#" onclick="goHome(); return false;">Нүүр хуудас</a>
+                        <a href="#" onclick="openCategory('all'); return false;">Бүх кино</a>
+                        <a href="#" onclick="showPage('vipPage'); return false;">VIP эрх авах</a>
+                        <a href="#" onclick="footerOpenProfile(); return false;">Миний профайл</a>
+                    </div>
+                    <div class="sf-col">
+                        <h4>Ангилал</h4>
+                        <a href="#" onclick="openCategory('ai'); return false;">AI</a>
+                        <a href="#" onclick="openCategory('modern'); return false;">Орчин үеийн</a>
+                        <a href="#" onclick="openCategory('historical'); return false;">Түүхэн</a>
+                    </div>
+                </div>
+                <div class="sf-bottom">© <span id="footerYear"></span> GoyKino. Бүх эрх хуулиар хамгаалагдсан.</div>
+            </footer>
 
         </main>
     </div>
