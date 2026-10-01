@@ -772,6 +772,19 @@ function showPage(pageId) {
     updateHeaderStyle();
 }
 
+// Лого дарахад — хайлтыг цэвэрлээд нүүр хуудас руу (тоглож буй видеог зогсооно)
+function goHome() {
+    closeVideoPlayer();
+    let input = document.getElementById('mainMovieSearchInput');
+    if (input && input.value) {
+        input.value = '';
+        document.getElementById('homeSearchResults').classList.add('hidden');
+        ['homeCarousel', 'homeSections'].forEach(id => document.getElementById(id)?.classList.remove('hidden'));
+    }
+    closeHeaderSearch();
+    showPage('homePage');
+}
+
 // ===== HEADER: кино хуудасны cover дээр тунгалаг, бусад үед шилэн (glass) =====
 function updateHeaderStyle() {
     let header = document.getElementById('mainHeader');
@@ -1202,7 +1215,6 @@ async function showMovieProfile(id) {
     closeVideoPlayer();
     renderMovieActionButtons(m);
     showPage('movieProfilePage');
-    updateMovieDescToggle();
     renderRecommendedMovies(id);
 }
 
@@ -1269,27 +1281,6 @@ function renderMovieInfo(m) {
         : '';
     document.getElementById('mProfInfo').innerHTML =
         `<div class="mp-info-row">${parts.join('<span class="mp-info-sep"></span>')}</div>${translator}${tags}`;
-}
-
-// Тайлбар 3 мөрөөс урт бол "Дэлгэрэнгүй" товч харуулна (хуудас харагдсаны дараа хэмжинэ)
-function updateMovieDescToggle() {
-    let desc = document.getElementById('mProfDescBox');
-    let btn  = document.getElementById('mProfMoreBtn');
-    if (!desc || !btn) return;
-    desc.classList.remove('expanded');
-    btn.classList.remove('expanded');
-    btn.innerHTML = 'Дэлгэрэнгүй <i class="fas fa-chevron-down"></i>';
-    requestAnimationFrame(() => {
-        btn.classList.toggle('hidden', desc.scrollHeight <= desc.clientHeight + 2);
-    });
-}
-
-function toggleMovieDesc() {
-    let desc = document.getElementById('mProfDescBox');
-    let btn  = document.getElementById('mProfMoreBtn');
-    let expanded = desc.classList.toggle('expanded');
-    btn.classList.toggle('expanded', expanded);
-    btn.innerHTML = `${expanded ? 'Хураах' : 'Дэлгэрэнгүй'} <i class="fas fa-chevron-down"></i>`;
 }
 
 // "Үзэх" товч — эхний ангийг тоглуулна. Эрхгүй бол get_movie_episodes хоосон буцаадаг.
@@ -1581,26 +1572,38 @@ function vipDiscountPercent(plan) {
 function renderVipPlans() {
     let list = document.getElementById('vipPlanList');
     if (!list) return;
+
+    // Аль хэдийн VIP бол үлдсэн хоногийг харуулна (сонгосон багц нь дээр нь нэмэгдэнэ)
+    let status = document.getElementById('vipStatus');
+    if (status) {
+        let active = currentUser && isVipActive(currentUser);
+        status.classList.toggle('hidden', !active);
+        if (active) {
+            let daysLeft = Math.ceil((new Date(currentUser.vipExpires) - Date.now()) / (1000 * 60 * 60 * 24));
+            status.innerHTML = `<i class="fas fa-check-circle"></i> Таны эрх: <strong>${daysLeft > 9999 ? 'Хязгааргүй' : `${daysLeft} хоног`}</strong> үлдсэн${daysLeft > 9999 ? '' : ' — сунгах бол багц сонгоно уу'}`;
+        }
+    }
+
+    // Нэг мөрөнд: [тэмдэг] нэр/хугацаа ........ үнэ/өдөрт (o)
     list.innerHTML = VIP_PLANS.map(p => {
         let off = vipDiscountPercent(p);
-        let perDay = p.lifetime ? 'Насан туршид' : `Өдөрт ₮${Math.round(p.price / p.days).toLocaleString()}`;
+        let perDay = p.lifetime ? 'Нэг удаа төлнө' : `Өдөрт ₮${Math.round(p.price / p.days).toLocaleString()}`;
         let duration = p.lifetime ? 'Хугацаагүй эрх' : `${p.days} хоногийн эрх`;
         return `
-            <button class="vip-plan ${p.code === selectedVipCode ? 'selected' : ''}" onclick="selectVipPlan('${p.code}')">
-                <div class="vip-plan-top">
-                    <div class="vip-plan-icon"><i class="fas ${p.icon}"></i></div>
-                    <div class="vip-plan-info">
-                        <div class="vip-plan-title">
-                            <span>${p.title}</span>
-                            ${off > 0 ? `<span class="vip-tag-off">-${off}%</span>` : ''}
-                        </div>
-                        <div class="vip-plan-sub">${duration}</div>
+            <button class="vip-plan ${p.lifetime ? 'lifetime' : ''} ${p.code === selectedVipCode ? 'selected' : ''}" onclick="selectVipPlan('${p.code}')">
+                <div class="vip-plan-icon"><i class="fas ${p.icon}"></i></div>
+                <div class="vip-plan-info">
+                    <div class="vip-plan-title">
+                        <span>${p.title}</span>
+                        ${off > 0 ? `<span class="vip-tag-off">-${off}%</span>` : ''}
                     </div>
+                    <div class="vip-plan-sub">${duration}</div>
                 </div>
-                <div class="vip-plan-bottom">
-                    <span class="vip-plan-price">₮${p.price.toLocaleString()}</span>
-                    <span class="vip-plan-perday">${perDay}</span>
+                <div class="vip-plan-pricebox">
+                    <div class="vip-plan-price">₮${p.price.toLocaleString()}</div>
+                    <div class="vip-plan-perday">${perDay}</div>
                 </div>
+                <span class="vip-plan-radio"></span>
             </button>`;
     }).join('');
     updateVipCheckoutBar();
@@ -2388,7 +2391,7 @@ function switchAdminTab(tabId) {
     document.querySelectorAll('.admin-tabs-nav button').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.add('hidden'));
 
-    let tabBtnMap = { overviewTab: 'btn-tab-overview', moviesTab: 'btn-tab-movies', requestsTab: 'btn-tab-requests', usersTab: 'btn-tab-users', bannersTab: 'btn-tab-banners' };
+    let tabBtnMap = { overviewTab: 'btn-tab-overview', moviesTab: 'btn-tab-movies', movieListTab: 'btn-tab-movielist', requestsTab: 'btn-tab-requests', usersTab: 'btn-tab-users', bannersTab: 'btn-tab-banners' };
     let btn = document.getElementById(tabBtnMap[tabId]);
     if (btn) btn.classList.add('active');
     let tab = document.getElementById(tabId);
@@ -2398,7 +2401,7 @@ function switchAdminTab(tabId) {
 
 function initAdminPanel() {
     if (adminActiveTab === 'overviewTab')      renderAdminOverview();
-    else if (adminActiveTab === 'moviesTab')   renderAdminMovieList();
+    else if (adminActiveTab === 'movieListTab') renderAdminMovieList();
     else if (adminActiveTab === 'usersTab')    renderAdminUsersTable();
     else if (adminActiveTab === 'requestsTab') renderAdminRequests();
     else if (adminActiveTab === 'bannersTab')  renderAdminBanners();
@@ -2800,11 +2803,17 @@ async function renderAdminUsersTable(page = 0) {
                     <div class="au-info">
                         <div class="au-name">${escapeHtml(u.name || 'Нэргүй')} ${role}</div>
                         <div class="au-sub">${escapeHtml(u.email || '')}${u.phone ? ' · ' + escapeHtml(u.phone) : ''}</div>
-                        ${vip}
+                        ${vip}${(u.rentedMovies || []).length ? `<span class="au-rented"><i class="fas fa-film"></i> ${u.rentedMovies.length} кино</span>` : ''}
                     </div>
-                    <div class="au-gift">
-                        <input type="number" id="vipDays-${idx}" placeholder="Хоног" min="1">
-                        <button data-email="${escapeHtml(u.email)}" onclick="adminGiveVipDays(this.dataset.email,${idx})"><i class="fas fa-gift"></i> Бэлэглэх</button>
+                    <div class="au-actions">
+                        <div class="au-gift">
+                            <input type="number" id="vipDays-${idx}" placeholder="Хоног" min="1">
+                            <button data-email="${escapeHtml(u.email)}" onclick="adminGiveVipDays(this.dataset.email,${idx})"><i class="fas fa-gift"></i> Хоног өгөх</button>
+                        </div>
+                        <div class="au-gift">
+                            <input type="text" id="giftCode-${idx}" placeholder="Киноны код">
+                            <button class="au-btn-movie" data-email="${escapeHtml(u.email)}" onclick="adminGiveMovie(this.dataset.email,${idx})"><i class="fas fa-film"></i> Кино өгөх</button>
+                        </div>
                     </div>
                 </div>`;
         }).join('');
@@ -2816,6 +2825,39 @@ async function renderAdminUsersTable(page = 0) {
         <span>${page + 1} / ${totalPages} · нийт ${usersTotalCount}</span>
         <button onclick="renderAdminUsersTable(${page + 1})" ${page + 1 >= totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>`
         : (usersTotalCount ? `<span>Нийт ${usersTotalCount} хэрэглэгч</span>` : '');
+}
+
+// Админ киноны кодыг гараар оруулж хэрэглэгчид кино нээж өгнө (түрээс шиг rentedMovies-д нэмнэ)
+async function adminGiveMovie(userEmail, idx) {
+    if (!await verifyIsAdmin()) return;
+    let input = document.getElementById(`giftCode-${idx}`);
+    let code = input.value.trim();
+    if (!code) return showToast('Киноны кодыг оруулна уу!', 'error');
+
+    let u = users.find(us => us.email === userEmail);
+    if (!u) return;
+
+    // Код бүртгэлтэй эсэхийг шалгана (том/жижиг үсэг ялгахгүй) — DB дахь зөв кодыг ашиглана
+    const { data: found, error: findErr } = await supabaseClient
+        .from('movies').select('id, title, code').ilike('code', code.replace(/[%_\\]/g, ch => '\\' + ch)).limit(1);
+    if (findErr) return showToast('Кино хайхад алдаа: ' + findErr.message, 'error');
+    let movie = found?.[0];
+    if (!movie) return showToast(`"${code}" кодтой кино олдсонгүй!`, 'error');
+
+    let rented = u.rentedMovies || [];
+    if (rented.includes(movie.code)) return showToast(`${u.name} энэ киног аль хэдийн үзэх эрхтэй байна.`, 'error');
+    rented = [...rented, movie.code];
+
+    const { error } = await supabaseClient.from('profile').update({ rentedMovies: rented }).eq('email', userEmail);
+    if (error) {
+        console.error('Кино өгөх алдаа:', error);
+        return showToast('Кино өгөхөд алдаа: ' + error.message, 'error');
+    }
+    u.rentedMovies = rented;
+    emailRentApproved(u, movie.title);
+
+    renderAdminUsersTable(usersCurrentPage);
+    showToast(`${u.name} хэрэглэгчид "${movie.title}" кино нээгдлээ!`);
 }
 
 async function adminGiveVipDays(userEmail, idx) {

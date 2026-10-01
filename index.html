@@ -24,7 +24,7 @@
 
     <!-- ДЭЭД ЦЭС -->
     <header class="main-header" id="mainHeader">
-        <div class="logo-area" onclick="showPage('homePage')">
+        <div class="logo-area" onclick="goHome()" role="link" aria-label="Нүүр хуудас">
             <div class="logo-text">Goy<span>Kino</span></div>
         </div>
         <div class="header-search">
@@ -102,6 +102,19 @@
             <!-- VIP ХУУДАС — багц сонгоод доод талын товчоор үргэлжлүүлнэ (script.js: VIP_PLANS) -->
             <section id="vipPage" class="page-section hidden">
                 <div class="vip-page">
+                    <!-- VIP танилцуулга — алтан туяатай, давуу талууд -->
+                    <div class="vip-hero">
+                        <div class="vip-hero-crown"><i class="lc" data-icon="crown"></i></div>
+                        <h2 class="vip-hero-title">GoyKino <span>VIP</span></h2>
+                        <p class="vip-hero-sub">Бүх кинонд хязгааргүй нэвтэрч, дуртай газраасаа үзээрэй.</p>
+                        <div class="vip-perks">
+                            <div class="vip-perk"><i class="fas fa-film"></i><span>Бүх кино нээлттэй</span></div>
+                            <div class="vip-perk"><i class="fas fa-infinity"></i><span>Хязгааргүй үзэх</span></div>
+                            <div class="vip-perk"><i class="fas fa-mobile-alt"></i><span>Бүх төхөөрөмж</span></div>
+                        </div>
+                        <div class="vip-status hidden" id="vipStatus"></div>
+                    </div>
+
                     <div class="vip-section-label">Багцууд</div>
                     <div class="vip-plan-list" id="vipPlanList"></div>
 
@@ -195,10 +208,9 @@
                     <!-- Эрхгүй: [Түрээслэх үнэ] [VIP] — эрхтэй: [▶ Үзэх] (script.js: renderMovieActionButtons) -->
                     <div class="mp-actions" id="movieActionButtonsContainer"></div>
 
-                    <!-- "Тайлбар: ..." — 3 мөрөөс урт бол сүүлийн мөрийн баруун талд "Дэлгэрэнгүй ⌄" -->
+                    <!-- "Тайлбар: ..." — бүтнээрээ харагдана -->
                     <div class="mp-desc-wrap">
                         <p class="mp-desc" id="mProfDescBox"><span class="mp-desc-label">Тайлбар:</span> <span id="mProfDesc"></span></p>
-                        <button class="mp-more-btn hidden" id="mProfMoreBtn" onclick="toggleMovieDesc()">Дэлгэрэнгүй <i class="fas fa-chevron-down"></i></button>
                     </div>
 
                     <!-- Жинхэнэ видео тоглуулагч -->
@@ -289,7 +301,8 @@
                 <h2 class="section-title"><i class="fas fa-user-shield"></i> Системийн удирдлагын хэсэг</h2>
                 <div class="admin-tabs-nav">
                     <button id="btn-tab-overview" class="active" onclick="switchAdminTab('overviewTab')">Тойм</button>
-                    <button id="btn-tab-movies" onclick="switchAdminTab('moviesTab')">Кино</button>
+                    <button id="btn-tab-movies" onclick="switchAdminTab('moviesTab')">Кино нэмэх</button>
+                    <button id="btn-tab-movielist" onclick="switchAdminTab('movieListTab')">Кинонууд</button>
                     <button id="btn-tab-requests" onclick="switchAdminTab('requestsTab')">Хүсэлтүүд</button>
                     <button id="btn-tab-users" onclick="switchAdminTab('usersTab')">Хэрэглэгчид</button>
                     <button id="btn-tab-banners" onclick="switchAdminTab('bannersTab')">Баннер</button>
@@ -325,10 +338,9 @@
                     </div>
                 </div>
 
-                <!-- Таб 1: Кино — нэмэх/засах + бүх киноны жагсаалт -->
+                <!-- Таб 1: Кино нэмэх / засах -->
                 <div id="moviesTab" class="admin-tab-content hidden">
-                    <div class="admin-grid-layout">
-                        <div class="admin-card-box">
+                        <div class="admin-card-box am-form-card">
                             <h3 style="margin-bottom:15px;" id="admFormTitle">Кино нэмэх</h3>
                             <div class="form-group"><label>Нэр</label><input type="text" id="admTitle"></div>
                             <div class="form-group"><label>Тайлбар</label><textarea id="admDesc" rows="3"></textarea></div>
@@ -392,11 +404,13 @@
                             <button class="btn-admin-submit" id="btnAdminMovieSubmit" onclick="adminSaveMovie()">Шууд нийтлэх</button>
                             <button class="am-cancel-btn hidden" id="btnAdminMovieCancel" onclick="adminCancelEdit()">Засахыг болих</button>
                         </div>
+                </div>
 
-                        <div class="admin-card-box">
-                            <h3 style="margin-bottom:12px;">Бүх кино <span class="banner-count" id="adminMovieCount">0</span></h3>
-                            <div class="am-list" id="adminMovieList"></div>
-                        </div>
+                <!-- Таб 2: Бүх кино — үзэлт, худалдан авалт, засах/устгах -->
+                <div id="movieListTab" class="admin-tab-content hidden">
+                    <div class="admin-card-box am-list-card">
+                        <h3 style="margin-bottom:12px;">Бүх кино <span class="banner-count" id="adminMovieCount">0</span></h3>
+                        <div class="am-list" id="adminMovieList"></div>
                     </div>
                 </div>
 
@@ -520,7 +534,8 @@
             <div class="pay-amount" id="payAmount">0 ₮</div>
             <div style="background:rgba(201,161,90,0.1);border:1px solid rgba(201,161,90,0.3);padding:10px;border-radius:8px;margin-bottom:15px;font-size:12px;color:#e8d3a8;text-align:left;line-height:1.5;">
                 <i class="fas fa-info-circle" style="color:var(--primary);margin-right:5px;"></i>
-                <strong>Чухал санамж:</strong> Гүйлгээний утгыг зөв оруулна уу. Төлбөр хийгдсэнээс хойш <strong>8 цагийн дотор</strong> таны эрх автоматаар сунгагдана.
+                <strong>Чухал санамж:</strong> Гүйлгээний утгыг зөв оруулна уу. Төлбөр хийгдсэнээс хойш <strong>8 цагийн дотор</strong> таны эрх автоматаар сунгагдана.<br>
+                Төлбөрөө шилжүүлсний дараа <strong>заавал "Төлбөр баталгаажуулах"</strong> товч дээр дарж хүсэлтээ илгээнэ үү.
             </div>
 
             <div class="pay-field">
