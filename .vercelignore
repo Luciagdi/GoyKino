@@ -1,0 +1,8 @@
+# Vercel-д зөвхөн сайтын файлууд (index.html, script.js, style.css, config.js) очно.
+# Доорх файлууд сервер/админы хэрэгсэл — интернэтэд нээлттэй байх ёсгүй.
+tools/
+supabase/
+.wrangler/
+worker.js
+wrangler.toml
+README.md

@@ -989,9 +989,26 @@ async function loginLogic() {
             : 'Имэйл эсвэл нууц үг буруу байна.', ['loginEmail', 'loginPass']);
     }
 
-    const { data: profile, error: profileErr } = await supabaseClient
-        .from('profile').select('*').eq('id', data.user.id).single();
-    if (profileErr || !profile) { hideLoading(); return showToast('Профайл олдсонгүй!', 'error'); }
+    let { data: profile, error: profileErr } = await supabaseClient
+        .from('profile').select('*').eq('id', data.user.id).maybeSingle();
+    // Имэйл баталгаажуулалттай бүртгэлд profile үүсээгүй байж болно — бүртгэлийн нэр/утсаар үүсгэнэ
+    if (!profileErr && !profile) {
+        const meta = data.user.user_metadata || {};
+        const newUser = {
+            id: data.user.id, email: data.user.email,
+            name: meta.name || data.user.email.split('@')[0], phone: meta.phone || '',
+            role: 'user', vipExpires: null, rentedMovies: [], history: [],
+            avatar: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
+        };
+        ({ data: profile, error: profileErr } = await supabaseClient
+            .from('profile').insert(newUser).select('*').single());
+    }
+    if (profileErr || !profile) {
+        console.error('Профайл алдаа:', profileErr);
+        await supabaseClient.auth.signOut(); // хагас нэвтэрсэн төлөвт үлдээхгүй
+        hideLoading();
+        return showToast('Профайл олдсонгүй!', 'error');
+    }
 
     currentUser = profile;
     sessionStorage.setItem('nova_current_user', JSON.stringify(currentUser));
