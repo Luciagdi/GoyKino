@@ -933,22 +933,12 @@ function clearAuthErrors() {
     document.querySelectorAll('.auth-field.invalid').forEach(el => el.classList.remove('invalid'));
 }
 
-// Нууц үгийн хүч: урт, үсэг + тоо, том/жижиг үсэг, тусгай тэмдэгт
-function updatePassStrength() {
-    let pass = document.getElementById('regPass').value;
-    let box  = document.getElementById('regPassStrength');
-    if (!box) return;
-    box.classList.toggle('hidden', !pass);
-    let score = 0;
-    if (pass.length >= 6) score++;
-    if (pass.length >= 10) score++;
-    if (/[a-zA-Zа-яА-ЯөүӨҮёЁ]/.test(pass) && /\d/.test(pass)) score++;
-    if (/[A-ZА-ЯӨҮЁ]/.test(pass) && /[a-zа-яөүё]/.test(pass)) score++;
-    if (/[^\w\sа-яА-ЯөүӨҮёЁ]/.test(pass)) score++;
-    let level = pass.length < 6 ? 0 : score <= 2 ? 1 : score <= 3 ? 2 : 3;
-    let labels = ['Хэт богино', 'Сул', 'Дунд', 'Хүчтэй'];
-    box.dataset.level = level;
-    box.querySelector('.auth-strength-text').innerText = labels[level];
+// Нууц үг 4-өөс дээш тэмдэгт л байхад болно. Supabase 6-аас богиныг хүлээж авдаггүй тул
+// 4-5 тэмдэгттэйг тогтмол төгсгөлөөр уртасгаж илгээнэ — бүртгэл, нэвтрэлт, сэргээлт бүгд үүгээр дамжина.
+// 6+ тэмдэгттэй (хуучин) нууц үг өөрчлөгдөхгүй.
+const MIN_PASS = 4;
+function authPass(pass) {
+    return pass.length < 6 ? pass + '#GoyKino' : pass;
 }
 
 // ===== CUSTOM CONFIRM =====
@@ -981,7 +971,7 @@ async function loginLogic() {
     }
 
     showLoading('Нэвтэрч байна...');
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: authPass(pass) });
     if (error) {
         hideLoading();
         return showAuthError('loginError', /confirm/i.test(error.message)
@@ -1035,7 +1025,7 @@ async function registerLogic() {
     if (name.length < 2)                          return showAuthError('regError', 'Нэрээ оруулна уу.', ['regName']);
     if (!/^\d{8}$/.test(phone))                    return showAuthError('regError', 'Утасны дугаар 8 оронтой байх ёстой.', ['regPhone']);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return showAuthError('regError', 'Имэйл хаяг буруу байна.', ['regEmail']);
-    if (pass.length < 6)                          return showAuthError('regError', 'Нууц үг дор хаяж 6 тэмдэгт байх ёстой.', ['regPass']);
+    if (pass.length < MIN_PASS)                   return showAuthError('regError', `Нууц үг дор хаяж ${MIN_PASS} тэмдэгт байх ёстой.`, ['regPass']);
     if (pass !== pass2)                           return showAuthError('regError', 'Нууц үг таарахгүй байна.', ['regPass2']);
 
     showLoading('Бүртгэж байна...');
@@ -1043,7 +1033,7 @@ async function registerLogic() {
     // profile хүснэгт бусдад уншигдахгүй (RLS) тул бүртгэлтэй эсэхийг signUp-ийн хариугаар шалгана
     // name/phone-ийг metadata-д дамжуулна — signup trigger profile үүсгэхдээ ашиглаж болно
     const { data, error } = await supabaseClient.auth.signUp({
-        email, password: pass, options: { data: { name, phone } }
+        email, password: authPass(pass), options: { data: { name, phone } }
     });
     if (error) {
         hideLoading();
@@ -2184,9 +2174,9 @@ async function recoverPasswordLogic() {
 
 async function resetPasswordLogic() {
     let newPass = document.getElementById('newPassInput').value;
-    if (!newPass || newPass.length < 6) return showToast('Нууц үг дор хаяж 6 тэмдэгт байх ёстой!', 'error');
+    if (!newPass || newPass.length < MIN_PASS) return showToast(`Нууц үг дор хаяж ${MIN_PASS} тэмдэгт байх ёстой!`, 'error');
 
-    const { error } = await supabaseClient.auth.updateUser({ password: newPass });
+    const { error } = await supabaseClient.auth.updateUser({ password: authPass(newPass) });
     if (error) { showToast('Нууц үг солиход алдаа гарлаа: ' + error.message, 'error'); return; }
 
     showToast('Нууц үг амжилттай солигдлоо! Шинэ нууц үгээрээ нэвтэрнэ үү.');
