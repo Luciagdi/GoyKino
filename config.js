@@ -20,5 +20,5 @@ const R2_PUBLIC_URL = 'https://pub-1720b603752f485ea99fde602e67b2fc.r2.dev';
 
 // --- Банкны мэдээлэл ---
 const BANK_NAME    = 'Хаан Банк';
-const BANK_OWNER   = 'ХОНГОРЗУЛ АМАРЖАРГАЛ';
-const BANK_ACCOUNT = 'MN180005005251499754';
+const BANK_OWNER   = 'Энхнамуун';
+const BANK_ACCOUNT = 'MN910005005250718075';
